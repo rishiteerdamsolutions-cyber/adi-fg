@@ -59,6 +59,10 @@ socket.on('lobbyMsg', function (msg) {
 document.getElementById('btnForce').addEventListener('click', function () { socket.emit('forceStart'); });
 
 /* ═══ GAME START ═══ */
+var vsPhase = false;
+var vsStartTime = 0;
+var VS_DURATION = 3000; /* ms */
+
 socket.on('gameStart', function (data) {
   gameData = data;
   amFighter = !!data.fighters[socket.id];
@@ -80,7 +84,115 @@ socket.on('gameStart', function (data) {
 
   setupBattle();
   showBattle();
+  startVsIntro();
 });
+
+function startVsIntro() {
+  vsPhase = true;
+  vsStartTime = performance.now();
+}
+
+function drawVsScreen(now) {
+  var elapsed = now - vsStartTime;
+  var progress = Math.min(1, elapsed / VS_DURATION);
+  var w = cv.width, h = cv.height;
+
+  /* Dark background */
+  ctx.clearRect(0, 0, w, h);
+  var grd = ctx.createLinearGradient(0, 0, 0, h);
+  grd.addColorStop(0, '#1a0a2e');
+  grd.addColorStop(0.5, '#2d1b4e');
+  grd.addColorStop(1, '#1e1033');
+  ctx.fillStyle = grd;
+  ctx.fillRect(0, 0, w, h);
+
+  /* Stomp effect: scale from 3x down to 1x with bounce */
+  var stompT = Math.min(1, elapsed / 600);
+  var bounce = stompT < 1 ? 3 - 2 * stompT + 0.3 * Math.sin(stompT * Math.PI * 3) * (1 - stompT) : 1;
+  var avatarScale = bounce;
+
+  var avatarH = h * 0.35;
+  var avatarW;
+  var gap = w * 0.12;
+
+  /* Left avatar (my fighter) */
+  if (myAvatarLoaded) {
+    avatarW = avatarH * (myAvatarImg.width / myAvatarImg.height);
+    var lx = w * 0.28;
+    var ly = h * 0.45;
+    ctx.save();
+    ctx.translate(lx, ly);
+    ctx.scale(avatarScale, avatarScale);
+    ctx.shadowColor = 'rgba(34, 197, 94, 0.8)';
+    ctx.shadowBlur = 30 * dpr;
+    ctx.drawImage(myAvatarImg, -avatarW / 2, -avatarH / 2, avatarW, avatarH);
+    ctx.restore();
+  }
+
+  /* Right avatar (opponent) */
+  if (opAvatarLoaded) {
+    avatarW = avatarH * (opAvatarImg.width / opAvatarImg.height);
+    var rx = w * 0.72;
+    var ry = h * 0.45;
+    ctx.save();
+    ctx.translate(rx, ry);
+    ctx.scale(avatarScale, avatarScale);
+    ctx.shadowColor = 'rgba(239, 68, 68, 0.8)';
+    ctx.shadowBlur = 30 * dpr;
+    ctx.drawImage(opAvatarImg, -avatarW / 2, -avatarH / 2, avatarW, avatarH);
+    ctx.restore();
+  }
+
+  /* VS text — pulse in after stomp */
+  if (elapsed > 400) {
+    var vsT = Math.min(1, (elapsed - 400) / 400);
+    var vsScale = 0.5 + vsT * 0.5 + Math.sin(vsT * Math.PI) * 0.3;
+    ctx.save();
+    ctx.translate(w / 2, h * 0.45);
+    ctx.scale(vsScale, vsScale);
+    ctx.fillStyle = '#fbbf24';
+    ctx.shadowColor = '#fbbf24';
+    ctx.shadowBlur = 40 * dpr;
+    ctx.font = 'bold ' + Math.round(48 * dpr) + 'px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('VS', 0, 0);
+    ctx.restore();
+  }
+
+  /* Player names */
+  if (elapsed > 600) {
+    var nameAlpha = Math.min(1, (elapsed - 600) / 400);
+    ctx.globalAlpha = nameAlpha;
+    ctx.font = 'bold ' + Math.round(16 * dpr) + 'px sans-serif';
+    ctx.textAlign = 'center';
+    /* My name (left) */
+    ctx.fillStyle = '#86efac';
+    ctx.fillText(myFighter.username, w * 0.28, h * 0.75);
+    ctx.fillStyle = '#9ca3af';
+    ctx.font = Math.round(11 * dpr) + 'px sans-serif';
+    ctx.fillText(myFighter.char.name + ' · ' + myFighter.char.weaponName, w * 0.28, h * 0.75 + 18 * dpr);
+    /* Opponent name (right) */
+    ctx.font = 'bold ' + Math.round(16 * dpr) + 'px sans-serif';
+    ctx.fillStyle = '#fca5a5';
+    ctx.fillText(opFighter.username, w * 0.72, h * 0.75);
+    ctx.fillStyle = '#9ca3af';
+    ctx.font = Math.round(11 * dpr) + 'px sans-serif';
+    ctx.fillText(opFighter.char.name + ' · ' + opFighter.char.weaponName, w * 0.72, h * 0.75 + 18 * dpr);
+    ctx.globalAlpha = 1;
+  }
+
+  /* Fade out at end */
+  if (progress > 0.8) {
+    var fadeAlpha = (progress - 0.8) / 0.2;
+    ctx.fillStyle = 'rgba(26, 10, 46, ' + fadeAlpha + ')';
+    ctx.fillRect(0, 0, w, h);
+  }
+
+  if (elapsed >= VS_DURATION) {
+    vsPhase = false;
+  }
+}
 
 /* ═══ GAME OVER ═══ */
 socket.on('gameOver', function (data) {
@@ -106,8 +218,8 @@ socket.on('nextCountdown', function (s) {
 
 var cv, ctx;
 var HOLE_COUNT = 5;
-var HOLE_BOTTOM_FRAC = 0.93;
-var HOLE_TOP_FRAC = 0.07;
+var HOLE_TOP_FRAC = 0.2;     /* unit 2 out of 10 */
+var HOLE_BOTTOM_FRAC = 0.8;  /* unit 8 out of 10 */
 var dpr = Math.min(window.devicePixelRatio || 1, 2);
 
 /* Images */
@@ -130,7 +242,7 @@ var gameRunning = false;
 var shotSeq = 0;
 
 /* ─── AVATAR SIZES ─── */
-var AVATAR_SCALE = 0.34; /* fraction of canvas height */
+var AVATAR_SCALE = 0.10; /* 1 unit out of 10 = 10% of canvas height */
 
 function loadTransparentAvatar(targetImg, src, onReady) {
   var raw = new Image();
@@ -364,7 +476,7 @@ function setupBattle() {
    * 2 lanes within the window = double shot.
    * 3+ lanes within the window = weapon-specific power move.
    */
-  var comboWindow = 320; /* ms to detect near-simultaneous presses */
+  var comboWindow = 250; /* ms to detect near-simultaneous presses */
   var pendingLanes = [];
   var comboTimer = null;
 
@@ -409,14 +521,30 @@ function setupBattle() {
       b.textContent = '↑ ' + (hi + 1);
       function queueLane(e) {
         if (e) e.preventDefault();
-        if (!gameRunning || !amFighter) return;
+        if (!gameRunning || !amFighter || vsPhase) return;
 
         /* Add to combo buffer */
         if (pendingLanes.indexOf(hi) === -1) pendingLanes.push(hi);
 
-        /* Reset timer — wait for more presses */
+        /* If only 1 lane so far, fire instantly AND start combo timer */
+        if (pendingLanes.length === 1) {
+          /* Fire single shot immediately */
+          var singleLanes = uniqueSortedLanes(pendingLanes.slice());
+          buildComboShots(singleLanes).forEach(sendPlayerShot);
+        }
+
+        /* Reset timer — wait for more presses for combo */
         if (comboTimer) clearTimeout(comboTimer);
-        comboTimer = setTimeout(fireCombo, comboWindow);
+        comboTimer = setTimeout(function() {
+          if (pendingLanes.length >= 2) {
+            /* Fire combo (multi-lane) */
+            fireCombo();
+          } else {
+            /* Single already fired, just clear */
+            pendingLanes = [];
+            comboTimer = null;
+          }
+        }, comboWindow);
       }
       if (window.PointerEvent) b.addEventListener('pointerdown', queueLane);
       else b.addEventListener('click', queueLane);
@@ -466,34 +594,30 @@ function holeXs(w, n) {
   return xs;
 }
 
-/* ─── Opponent layout (top of canvas) ─── */
+/* ─── Opponent layout (top of canvas, unit 0-1 out of 10) ─── */
 function opLayout() {
   var w = cv.width, h = cv.height;
-  var maxH = Math.max(60 * dpr, h * AVATAR_SCALE);
-  var imgH = maxH;
+  var unitH = h / 10;
+  var imgH = unitH; /* 1 unit tall */
   var imgW = opAvatarLoaded ? (imgH * opAvatarImg.width / opAvatarImg.height) : imgH * 0.7;
-  var maxW = w * 0.45;
+  var maxW = w * 0.3;
   if (imgW > maxW) { var sc = maxW / imgW; imgW = maxW; imgH *= sc; }
-  var marginX = 10 * dpr;
-  var panRange = Math.max(0, w / 2 - imgW / 2 - marginX);
-  var cx = w / 2 + Math.sin(phaseForFighter(opFighter)) * panRange;
-  var cy = 4 * dpr + imgH / 2;
-  return { cx: cx, cy: cy, iw: imgW, ih: imgH, footY: cy + imgH / 2 };
+  var cx = w / 2; /* centered, no panning for small avatar */
+  var cy = unitH * 0.5; /* center of unit 0-1 */
+  return { cx: cx, cy: cy, iw: imgW, ih: imgH, footY: unitH };
 }
 
-/* ─── My layout (bottom of canvas) ─── */
+/* ─── My layout (bottom of canvas, unit 9-10 out of 10) ─── */
 function myLayout() {
   var w = cv.width, h = cv.height;
-  var maxH = Math.max(60 * dpr, h * AVATAR_SCALE);
-  var imgH = maxH;
+  var unitH = h / 10;
+  var imgH = unitH; /* 1 unit tall */
   var imgW = myAvatarLoaded ? (imgH * myAvatarImg.width / myAvatarImg.height) : imgH * 0.7;
-  var maxW = w * 0.45;
+  var maxW = w * 0.3;
   if (imgW > maxW) { var sc = maxW / imgW; imgW = maxW; imgH *= sc; }
-  var marginX = 10 * dpr;
-  var panRange = Math.max(0, w / 2 - imgW / 2 - marginX);
-  var cx = w / 2 + Math.sin(phaseForFighter(myFighter)) * panRange;
-  var cy = h - 4 * dpr - imgH / 2;
-  return { cx: cx, cy: cy, iw: imgW, ih: imgH, headY: cy - imgH / 2 };
+  var cx = w / 2; /* centered */
+  var cy = h - unitH * 0.5; /* center of unit 9-10 */
+  return { cx: cx, cy: cy, iw: imgW, ih: imgH, headY: h - unitH };
 }
 
 /* ─── Spawn projectiles ─── */
@@ -504,8 +628,7 @@ function spawnPlayerShot(shot, dmg, big) {
   var xs = holeXs(w, HOLE_COUNT);
   var lane = Math.max(0, Math.min(HOLE_COUNT - 1, shot.lane | 0));
   var x = (xs[lane] != null ? xs[lane] : w / 2) + (shot.offset || 0) * dpr;
-  var ML = myLayout();
-  var y = ML.headY - 6 * dpr; /* just above my avatar */
+  var y = h * HOLE_BOTTOM_FRAC; /* spawn at player holes (unit 8) */
   var spd = (shot.speed || 420) * dpr;
   projectiles.push({
     id: shot.shotId || nextShotId(),
@@ -524,12 +647,11 @@ function spawnPlayerShot(shot, dmg, big) {
 function spawnEnemyShot(shot, dmg) {
   if (typeof shot === 'number') shot = { lane: shot, dmg: dmg };
   shot = shot || {};
-  var w = cv.width;
+  var w = cv.width, h = cv.height;
   var xs = holeXs(w, HOLE_COUNT);
   var lane = Math.max(0, Math.min(HOLE_COUNT - 1, shot.lane | 0));
   var x = (xs[lane] != null ? xs[lane] : w / 2) + (shot.offset || 0) * dpr;
-  var OL = opLayout();
-  var y = OL.footY + 6 * dpr; /* just below opponent avatar */
+  var y = h * HOLE_TOP_FRAC; /* spawn at opponent holes (unit 2) */
   var spd = (shot.speed || 420) * dpr;
   projectiles.push({
     id: shot.shotId || nextShotId(),
@@ -611,6 +733,13 @@ function loop(now) {
   var dt = Math.min(0.05, (now - lastT) / 1000);
   lastT = now;
 
+  /* VS intro phase — draw VS screen instead of gameplay */
+  if (vsPhase) {
+    drawVsScreen(now);
+    requestAnimationFrame(loop);
+    return;
+  }
+
   var w = cv.width, h = cv.height;
 
   /* Collisions */
@@ -631,15 +760,16 @@ function loop(now) {
       continue;
     }
 
-    /* Ally projectile hitting OPPONENT avatar (top) */
+    /* Ally projectile hitting OPPONENT avatar (top) — damage only on avatar touch */
     if (p.ally && opHp > 0) {
       if (projectileTouchesAvatar(p, OL)) {
         projectiles.splice(i, 1);
+        /* Visual feedback — flash on hit */
         continue;
       }
     }
 
-    /* Enemy projectile hitting MY avatar (bottom) */
+    /* Enemy projectile hitting MY avatar (bottom) — damage only on avatar touch */
     if (!p.ally && myHp > 0) {
       if (projectileTouchesAvatar(p, ML)) {
         projectiles.splice(i, 1);
@@ -651,6 +781,10 @@ function loop(now) {
         continue;
       }
     }
+
+    /* Remove projectiles that pass beyond the avatar zones without hitting */
+    if (p.ally && p.y < 0) { projectiles.splice(i, 1); continue; }
+    if (!p.ally && p.y > cv.height) { projectiles.splice(i, 1); continue; }
   }
 
   /* ═══ DRAW ═══ */
@@ -751,20 +885,22 @@ function loop(now) {
     ctx.restore();
   }
 
-  /* ─── Draw hole markers ─── */
+  /* ─── Draw hole markers at unit 2 (top) and unit 8 (bottom) ─── */
   var topXs = holeXs(w, HOLE_COUNT);
   var botXs = holeXs(w, HOLE_COUNT);
+  var topHoleY = h * HOLE_TOP_FRAC;
+  var botHoleY = h * HOLE_BOTTOM_FRAC;
   ctx.strokeStyle = 'rgba(251, 191, 36, 0.55)';
   ctx.lineWidth = 2 * dpr;
   for (var t = 0; t < HOLE_COUNT; t++) {
-    /* Top holes (behind opponent) */
+    /* Top holes (unit 2) */
     ctx.fillStyle = 'rgba(0,0,0,0.35)';
-    ctx.beginPath(); ctx.arc(topXs[t], OL.footY + 8 * dpr, 5 * dpr, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(topXs[t], OL.footY + 8 * dpr, 6 * dpr, 0, Math.PI * 2); ctx.stroke();
-    /* Bottom holes (in front of me) */
+    ctx.beginPath(); ctx.arc(topXs[t], topHoleY, 5 * dpr, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(topXs[t], topHoleY, 6 * dpr, 0, Math.PI * 2); ctx.stroke();
+    /* Bottom holes (unit 8) */
     ctx.fillStyle = 'rgba(0,0,0,0.35)';
-    ctx.beginPath(); ctx.arc(botXs[t], ML.headY - 8 * dpr, 5 * dpr, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(botXs[t], ML.headY - 8 * dpr, 6 * dpr, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(botXs[t], botHoleY, 5 * dpr, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(botXs[t], botHoleY, 6 * dpr, 0, Math.PI * 2); ctx.stroke();
   }
 
   /* ─── End state overlay ─── */
