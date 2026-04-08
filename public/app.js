@@ -160,7 +160,7 @@ function drawVsScreen(now) {
     ctx.restore();
   }
 
-  /* Player names */
+  /* Player names — show only user-entered names */
   if (elapsed > 600) {
     var nameAlpha = Math.min(1, (elapsed - 600) / 400);
     ctx.globalAlpha = nameAlpha;
@@ -169,16 +169,9 @@ function drawVsScreen(now) {
     /* My name (left) */
     ctx.fillStyle = '#86efac';
     ctx.fillText(myFighter.username, w * 0.28, h * 0.75);
-    ctx.fillStyle = '#9ca3af';
-    ctx.font = Math.round(11 * dpr) + 'px sans-serif';
-    ctx.fillText(myFighter.char.name + ' · ' + myFighter.char.weaponName, w * 0.28, h * 0.75 + 18 * dpr);
     /* Opponent name (right) */
-    ctx.font = 'bold ' + Math.round(16 * dpr) + 'px sans-serif';
     ctx.fillStyle = '#fca5a5';
     ctx.fillText(opFighter.username, w * 0.72, h * 0.75);
-    ctx.fillStyle = '#9ca3af';
-    ctx.font = Math.round(11 * dpr) + 'px sans-serif';
-    ctx.fillText(opFighter.char.name + ' · ' + opFighter.char.weaponName, w * 0.72, h * 0.75 + 18 * dpr);
     ctx.globalAlpha = 1;
   }
 
@@ -445,9 +438,9 @@ function setupBattle() {
   opWeaponImg.onload = function () { opWeaponLoaded = true; };
   opWeaponImg.src = opFighter.char.weapon + '?v=mp3';
 
-  /* Header */
+  /* Header — show only user-entered names, NOT character names */
   document.getElementById('gameH1').innerText = myFighter.username + ' vs ' + opFighter.username;
-  document.getElementById('opponentTitle').innerText = opFighter.username + ' — ' + opFighter.char.name + ' (' + opFighter.char.weaponName + ')';
+  document.getElementById('opponentTitle').innerText = opFighter.username + ' — ' + opFighter.char.weaponName;
   document.getElementById('opHpLabel').innerText = opFighter.username;
 
   /* Weapon row (visual display only — single weapon) */
@@ -770,7 +763,12 @@ function loop(now) {
     if (p.ally && opHp > 0) {
       if (projectileTouchesAvatar(p, OL)) {
         projectiles.splice(i, 1);
-        /* Visual feedback — flash on hit */
+        /* Actually reduce opponent HP and tell server */
+        if (amFighter) {
+          opHp = Math.max(0, opHp - p.dmg);
+          updateHpBars();
+          socket.emit('hitOpponent', { dmg: p.dmg, hitId: p.id });
+        }
         continue;
       }
     }
@@ -816,7 +814,7 @@ function loop(now) {
   }
 
   /* ─── Draw OPPONENT avatar (top) ─── */
-  /* Opponent name label — draw BEFORE avatar so it shows behind */
+  /* Opponent name label — only user-entered name, NOT character names */
   ctx.fillStyle = '#fca5a5';
   ctx.font = 'bold ' + Math.round(10 * dpr) + 'px sans-serif';
   ctx.textAlign = 'center';
@@ -826,8 +824,8 @@ function loop(now) {
     ctx.save();
     ctx.shadowColor = 'rgba(185, 28, 28, 0.7)';
     ctx.shadowBlur = 22 * dpr;
-    /* multiply: white pixels become transparent on dark canvas */
-    ctx.globalCompositeOperation = 'multiply';
+    /* source-over: renders avatar fully visible on the canvas */
+    ctx.globalCompositeOperation = 'source-over';
     ctx.drawImage(opAvatarImg, OL.cx - OL.iw / 2, OL.cy - OL.ih / 2, OL.iw, OL.ih);
     ctx.restore();
   } else {
@@ -836,7 +834,7 @@ function loop(now) {
   }
 
   /* ─── Draw MY avatar (bottom) ─── */
-  /* My name label */
+  /* My name label — only user-entered name */
   ctx.fillStyle = '#86efac';
   ctx.font = 'bold ' + Math.round(10 * dpr) + 'px sans-serif';
   ctx.textAlign = 'center';
@@ -846,7 +844,8 @@ function loop(now) {
     ctx.save();
     ctx.shadowColor = 'rgba(34, 197, 94, 0.6)';
     ctx.shadowBlur = 22 * dpr;
-    ctx.globalCompositeOperation = 'multiply';
+    /* source-over: renders avatar fully visible on the canvas */
+    ctx.globalCompositeOperation = 'source-over';
     ctx.drawImage(myAvatarImg, ML.cx - ML.iw / 2, ML.cy - ML.ih / 2, ML.iw, ML.ih);
     ctx.restore();
   } else {
@@ -870,8 +869,8 @@ function loop(now) {
 
     var weaponImg = q.ally ? myWeaponImg : opWeaponImg;
     var weaponLoaded = q.ally ? myWeaponLoaded : opWeaponLoaded;
-    /* Use multiply blend so weapon white background disappears */
-    ctx.globalCompositeOperation = 'multiply';
+    /* source-over: render weapon projectiles fully visible */
+    ctx.globalCompositeOperation = 'source-over';
     if (weaponLoaded) {
       var aw = pSize;
       var ah = pSize * (weaponImg.height / weaponImg.width);

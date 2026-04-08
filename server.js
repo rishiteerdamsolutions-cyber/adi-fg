@@ -201,6 +201,23 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Player reports hitting their opponent (ally arrow hit opponent avatar)
+  socket.on('hitOpponent', ({ dmg, hitId } = {}) => {
+    if (game.status !== 'playing' || !game.fighters[socket.id]) return;
+    const id = typeof hitId === 'string' ? hitId.slice(0, 80) : `${socket.id}:hit:${Date.now()}:${Math.random()}`;
+    if (game.hitIds.has(id)) return;
+    game.hitIds.add(id);
+    const opId = game.fighterIds.find(x => x !== socket.id);
+    if (!opId || !game.fighters[opId]) return;
+    const opponent = game.fighters[opId];
+    const safeDmg = clampNum(dmg, 1, 120, 1);
+    opponent.hp = Math.max(0, opponent.hp - safeDmg);
+    io.emit('hpUpdate', { id: opId, hp: opponent.hp, maxHp: opponent.maxHp });
+    if (opponent.hp <= 0) {
+      handleGameOver(socket.id);
+    }
+  });
+
   socket.on('disconnect', () => {
     delete lobby.players[socket.id];
     if (game.fighters[socket.id] && game.status === 'playing') {

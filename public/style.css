@@ -83,10 +83,17 @@ body {
 
 /* ═══ SPECTATOR BANNER ═══ */
 .spec-banner {
-  position: fixed; top: 0; left: 0; width: 100%; z-index: 100;
-  text-align: center; padding: 8px;
-  background: rgba(56,189,248,0.1); border-bottom: 1px solid rgba(56,189,248,0.3);
-  color: #38bdf8; font-weight: 900; font-size: 0.85rem;
+  position: relative; width: 100%; z-index: 100;
+  text-align: center; padding: 10px;
+  background: rgba(56,189,248,0.15); border-bottom: 2px solid rgba(56,189,248,0.3);
+  color: #38bdf8; font-weight: 900; font-size: 0.9rem;
+  letter-spacing: 0.05em;
+  animation: pulseSpec 2s infinite ease-in-out;
+}
+@keyframes pulseSpec {
+  0% { background: rgba(56,189,248,0.15); }
+  50% { background: rgba(56,189,248,0.25); }
+  100% { background: rgba(56,189,248,0.15); }
 }
 .spec-banner.hidden { display: none; }
 
@@ -119,8 +126,8 @@ h1 {
 
 .player-deck {
   flex: 0 0 auto; display: flex; flex-direction: column;
-  gap: clamp(0.35rem, 1.8vmin, 0.65rem);
-  width: 100%; margin-top: clamp(0.5rem, 2.2vmin, 0.95rem);
+  gap: clamp(0.25rem, 1.5vmin, 0.5rem);
+  width: 100%; margin-top: clamp(0.35rem, 1.8vmin, 0.75rem);
   padding-top: clamp(0.35rem, 1.5vmin, 0.55rem);
   border-top: 1px solid rgba(251, 191, 36, 0.22);
   position: relative; z-index: 4; isolation: isolate;
@@ -250,4 +257,60 @@ canvas { display: block; width: 100%; height: 100%; }
   .arena { transform: rotateX(4deg); min-height: clamp(8.5rem, 28svmin, 11rem); }
   h1 { font-size: clamp(0.55rem, 1.4vmin, 0.68rem); }
   .hole-btn { min-height: max(44px, 2.4rem); }
+}
+
+/* ═══ POWER MOVES INFO PANEL ═══ */
+.power-info-panel {
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: 0.75rem;
+  padding: 0.6rem 0.8rem;
+}
+.lobby-guide {
+  width: 100%;
+  margin-top: 15px;
+  background: rgba(8, 5, 18, 0.6);
+  border-color: rgba(245, 158, 11, 0.15);
+}
+.battle-guide {
+  margin-top: 0.15rem;
+}
+.power-info-panel h3 {
+  margin: 0 0 0.2rem;
+  font-size: 0.72rem;
+  color: #fbbf24;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+.power-info-panel ul {
+  margin: 0;
+  padding: 0 0 0 1rem;
+  list-style: disc;
+}
+.power-info-panel li {
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.78);
+  line-height: 1.55;
+  margin-bottom: 0.12rem;
+}
+.power-info-panel li b {
+  color: #fde68a;
+  font-weight: 700;
+}
+.power-highlight {
+  color: #fbbf24;
+  font-weight: 900;
+  text-shadow: 0 0 6px rgba(251, 191, 36, 0.5);
+  animation: powerGlow 1.5s ease-in-out infinite alternate;
+}
+@keyframes powerGlow {
+  from { text-shadow: 0 0 6px rgba(251, 191, 36, 0.3); }
+  to { text-shadow: 0 0 12px rgba(251, 191, 36, 0.7); }
+}
+.power-tip {
+  margin: 0.3rem 0 0;
+  font-size: 0.62rem;
+  color: rgba(56, 189, 248, 0.85);
+  font-weight: 600;
+  font-style: italic;
 }

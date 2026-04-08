@@ -39,11 +39,22 @@
       </div>
       <button class="gold-btn" id="btnForce" style="display:none">⚡ Start Now!</button>
       <p id="lobbyMsg" class="info"></p>
+      
+      <!-- Power Moves Guide (Visible to everyone in lobby) -->
+      <div class="power-info-panel lobby-guide">
+        <h3>⚡ Power Moves Guide</h3>
+        <ul>
+          <li><b>1 Lane</b> — Normal shot (1× damage)</li>
+          <li><b>2 Lanes quickly</b> — Double shot (1.5× damage each)</li>
+          <li><b>3+ Lanes quickly</b> — <span class="power-highlight">POWER MOVE!</span> (Unique skill)</li>
+        </ul>
+        <p class="power-tip">💡 Tap multiple lanes within 250ms!</p>
+      </div>
     </div>
   </div>
 
   <!-- ═══ SPECTATOR BANNER ═══ -->
-  <div id="specBanner" class="spec-banner hidden">👁️ SPECTATOR MODE</div>
+  <div id="specBanner" class="spec-banner hidden">👁️ YOU ARE WATCHING AS A SPECTATOR</div>
 
   <!-- ═══ BATTLE (canvas game) ═══ -->
   <div id="screenBattle" class="battle-screen" style="display:none">
@@ -74,6 +85,16 @@
             <!-- Filled dynamically -->
           </aside>
           <div class="holes" id="holes"></div>
+          
+          <!-- Power Moves Guide (Visible during battle) -->
+          <div class="power-info-panel battle-guide">
+            <h3>⚡ Power Moves Guide</h3>
+            <ul>
+              <li><b>1 Lane</b> — Normal</li>
+              <li><b>2 Lanes</b> — Double (1.5×)</li>
+              <li><b>3+ Lanes</b> — <span class="power-highlight">POWER MOVE!</span></li>
+            </ul>
+          </div>
         </div>
 
         <!-- Your HP -->
