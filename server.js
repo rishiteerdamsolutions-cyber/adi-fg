@@ -11,16 +11,16 @@ app.use(express.static('public'));
 
 /* ─── 10 Characters ─── */
 const FAMILY = [
-  { id: 0, name: 'Elder Sage',    avatar: '/avatars/1.png',  weapon: '/weapons/1.png',  weaponName: 'Staff',       dmg: 14 },
-  { id: 1, name: 'Iron Maiden',   avatar: '/avatars/2.png',  weapon: '/weapons/2.png',  weaponName: 'Crossbow',    dmg: 28 },
-  { id: 2, name: 'Titan',         avatar: '/avatars/3.png',  weapon: '/weapons/3.png',  weaponName: 'War Hammer',  dmg: 35 },
-  { id: 3, name: 'Valkyrie',      avatar: '/avatars/4.png',  weapon: '/weapons/4.png',  weaponName: 'Sword',       dmg: 30 },
-  { id: 4, name: 'Blaze',         avatar: '/avatars/5.png',  weapon: '/weapons/5.png',  weaponName: 'Gun',         dmg: 40 },
-  { id: 5, name: 'Shadow',        avatar: '/avatars/6.png',  weapon: '/weapons/6.png',  weaponName: 'Bow & Arrow', dmg: 25 },
-  { id: 6, name: 'Rascal',        avatar: '/avatars/7.png',  weapon: '/weapons/7.png',  weaponName: 'Slingshot',   dmg: 10 },
-  { id: 7, name: 'Berserker',     avatar: '/avatars/8.png',  weapon: '/weapons/8.png',  weaponName: 'Battle Axe',  dmg: 34 },
-  { id: 8, name: 'Phoenix',       avatar: '/avatars/9.png',  weapon: '/weapons/9.png',  weaponName: 'Spear',       dmg: 30 },
-  { id: 9, name: 'Trident King',  avatar: '/avatars/10.png', weapon: '/weapons/10.png', weaponName: 'Trident',     dmg: 28 },
+  { id: 0, name: 'Dronacharya',  avatar: '/avatars/1.png',  weapon: '/weapons/1.png',  weaponName: 'Staff',       dmg: 14 },
+  { id: 1, name: 'Shakti',       avatar: '/avatars/2.png',  weapon: '/weapons/2.png',  weaponName: 'Crossbow',    dmg: 28 },
+  { id: 2, name: 'Bheem',        avatar: '/avatars/3.png',  weapon: '/weapons/3.png',  weaponName: 'War Hammer',  dmg: 35 },
+  { id: 3, name: 'Durga',        avatar: '/avatars/4.png',  weapon: '/weapons/4.png',  weaponName: 'Sword',       dmg: 30 },
+  { id: 4, name: 'Arjun',        avatar: '/avatars/5.png',  weapon: '/weapons/5.png',  weaponName: 'Gun',         dmg: 40 },
+  { id: 5, name: 'Meera',        avatar: '/avatars/6.png',  weapon: '/weapons/6.png',  weaponName: 'Bow & Arrow', dmg: 25 },
+  { id: 6, name: 'Chintu',       avatar: '/avatars/7.png',  weapon: '/weapons/7.png',  weaponName: 'Slingshot',   dmg: 10 },
+  { id: 7, name: 'Veer',         avatar: '/avatars/8.png',  weapon: '/weapons/8.png',  weaponName: 'Battle Axe',  dmg: 34 },
+  { id: 8, name: 'Agni',         avatar: '/avatars/9.png',  weapon: '/weapons/9.png',  weaponName: 'Spear',       dmg: 30 },
+  { id: 9, name: 'Rudra',        avatar: '/avatars/10.png', weapon: '/weapons/10.png', weaponName: 'Trident',     dmg: 28 },
 ];
 
 /* ─── Lobby ─── */
