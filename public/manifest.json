@@ -1,0 +1,21 @@
+{
+  "name": "ADI - FG : AI Developer India Family Game",
+  "short_name": "ADI-FG",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#0f0c29",
+  "theme_color": "#ff416c",
+  "description": "AI Developer India Family Game - Multiplayer Lane Shooter",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

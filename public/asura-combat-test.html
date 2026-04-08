@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <title>ADI- FG | AI Developer India Family Game</title>
+    <style>
+      :root {
+        --bg1: #1a0a2e;
+        --bg2: #2d1b4e;
+        --amber: #f59e0b;
+        --amber-dim: rgba(245, 158, 11, 0.45);
+        --blood: #b91c1c;
+        --blood-track: rgba(0, 0, 0, 0.45);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        height: 100%;
+        overflow-x: hidden;
+      }
+      body {
+        margin: 0;
+        width: 100%;
+        max-width: 100%;
+        min-height: 100vh;
+        min-height: 100dvh;
+        min-height: 100svh;
+        height: auto;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        background: linear-gradient(165deg, var(--bg1) 0%, var(--bg2) 50%, #1e1033 100%);
+        color: #fff;
+        padding: max(0.35rem, env(safe-area-inset-top, 0px)) max(0.5rem, env(safe-area-inset-right, 0px))
+          max(0.35rem, env(safe-area-inset-bottom, 0px)) max(0.5rem, env(safe-area-inset-left, 0px));
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: clamp(0.28rem, 1.5vmin, 0.55rem);
+        touch-action: manipulation;
+        overflow-x: hidden;
+        overflow-y: auto;
+        -webkit-tap-highlight-color: transparent;
+      }
+      @media (max-width: 900px) {
+        body {
+          min-height: 100svh;
+        }
+      }
+      .game-header {
+        flex: 0 0 auto;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.12rem;
+        text-align: center;
+        padding-inline: 0.25rem;
+      }
+      h1 {
+        font-size: clamp(0.58rem, 1.45vmin + 0.32rem, 0.88rem);
+        font-weight: 600;
+        opacity: 0.85;
+        text-align: center;
+        margin: 0;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        line-height: 1.2;
+      }
+      .game-name {
+        font-size: clamp(0.58rem, 2.2vmin, 0.78rem);
+        color: rgba(255, 247, 237, 0.72);
+        margin: 0;
+        line-height: 1.2;
+      }
+      .layout {
+        display: flex;
+        flex-direction: column;
+        gap: clamp(0.22rem, 1.1vmin, 0.45rem);
+        width: 100%;
+        max-width: 100%;
+        margin-inline: auto;
+        align-items: stretch;
+        flex: 1 1 auto;
+        min-height: 0;
+      }
+      @media (min-width: 600px) {
+        .layout {
+          max-width: min(30rem, 100%);
+        }
+      }
+      .player-deck {
+        flex: 0 0 auto;
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        gap: clamp(0.35rem, 1.8vmin, 0.65rem);
+        width: 100%;
+        margin-top: clamp(0.5rem, 2.2vmin, 0.95rem);
+        padding-top: clamp(0.35rem, 1.5vmin, 0.55rem);
+        border-top: 1px solid rgba(251, 191, 36, 0.22);
+        position: relative;
+        z-index: 4;
+        isolation: isolate;
+        background: linear-gradient(180deg, rgba(10, 6, 22, 0.35) 0%, transparent 100%);
+      }
+      .weapons {
+        flex: 0 0 auto;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        overflow-x: auto;
+        scrollbar-width: thin;
+        gap: 0.35rem;
+        width: 100%;
+        padding-bottom: 0.05rem;
+      }
+      .weapons h2 {
+        font-size: clamp(0.55rem, 2vmin, 0.68rem);
+        margin: 0 0.12rem 0 0;
+        color: var(--amber-dim);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        white-space: nowrap;
+      }
+      .weapon-btn {
+        flex: 0 0 auto;
+        width: clamp(2.35rem, 11vmin, 2.85rem);
+        height: clamp(2.35rem, 11vmin, 2.85rem);
+        padding: 0;
+        font-size: clamp(1rem, 4.2vmin, 1.35rem);
+        line-height: 1;
+        border-radius: 0.65rem;
+        border: 1px solid rgba(251, 191, 36, 0.35);
+        background: rgba(0, 0, 0, 0.35);
+        color: #fde68a;
+        cursor: pointer;
+        text-align: center;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        transition: background 0.15s, border-color 0.15s;
+      }
+      .weapon-btn:hover,
+      .weapon-btn:focus-visible {
+        border-color: var(--amber);
+        background: rgba(245, 158, 11, 0.15);
+        outline: none;
+      }
+      .weapon-btn.active {
+        background: rgba(245, 158, 11, 0.28);
+        border-color: var(--amber);
+        font-weight: 700;
+      }
+      .weapon-btn::after {
+        content: attr(data-name) " · " attr(data-dmg) " dmg";
+        position: absolute;
+        left: 50%;
+        bottom: calc(100% + 0.3rem);
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.78);
+        border: 1px solid rgba(251, 191, 36, 0.45);
+        color: #fde68a;
+        padding: 0.18rem 0.35rem;
+        border-radius: 0.35rem;
+        font-size: 0.56rem;
+        font-weight: 600;
+        white-space: nowrap;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.12s ease;
+        z-index: 20;
+      }
+      .weapon-btn:hover::after,
+      .weapon-btn:focus-visible::after,
+      .weapon-btn.active::after,
+      .weapon-btn.tip-touch::after {
+        opacity: 1;
+      }
+      @media (hover: none) and (pointer: coarse) {
+        .weapon-btn::after {
+          font-size: clamp(0.5rem, 2.8vmin, 0.62rem);
+          max-width: min(14rem, 92vw);
+          white-space: normal;
+          text-align: center;
+          line-height: 1.2;
+        }
+      }
+      .player-deck .weapon-btn::after {
+        bottom: auto;
+        top: calc(100% + 0.35rem);
+      }
+      .stage-wrap {
+        flex: 1 1 0;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: clamp(0.12rem, 0.9vmin, 0.28rem);
+        min-height: 0;
+      }
+      .holes {
+        flex-shrink: 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: stretch;
+        align-self: stretch;
+        width: 100%;
+        padding: 0 10%;
+        margin: 0;
+        gap: clamp(0.18rem, 1.2vmin, 0.35rem);
+        box-sizing: border-box;
+        position: relative;
+        z-index: 1;
+      }
+      .hole-btn {
+        flex: 1 1 0;
+        min-width: 0;
+        min-height: max(48px, 2.85rem);
+        padding: 0.2rem 0.06rem;
+        border-radius: clamp(0.35rem, 1.5vmin, 0.5rem);
+        border: 1px solid rgba(251, 191, 36, 0.5);
+        background: rgba(0, 0, 0, 0.45);
+        color: #fef3c7;
+        font-size: clamp(0.58rem, 2.6vmin, 0.72rem);
+        font-weight: 700;
+        line-height: 1.15;
+        cursor: pointer;
+        transition: transform 0.1s, background 0.15s, border-color 0.15s;
+      }
+      .hole-btn:active {
+        transform: scale(0.96);
+        background: rgba(245, 158, 11, 0.22);
+      }
+      .hole-btn:focus-visible {
+        outline: 2px solid var(--amber);
+        outline-offset: 1px;
+      }
+      .hp-row {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        font-size: clamp(0.55rem, 2.4vmin, 0.72rem);
+        flex-shrink: 0;
+      }
+      .hp-row span.label {
+        flex: 0 0 clamp(2.35rem, 18vw, 2.85rem);
+        color: #fcd34d;
+      }
+      .hp-bar {
+        flex: 1;
+        height: clamp(0.45rem, 2vmin, 0.62rem);
+        background: var(--blood-track);
+        border-radius: 999px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+      }
+      .hp-fill {
+        height: 100%;
+        width: 100%;
+        background: linear-gradient(90deg, #7f1d1d, var(--blood));
+        transform-origin: left center;
+        transition: transform 0.12s ease-out;
+      }
+      .hp-fill.player {
+        background: linear-gradient(90deg, #14532d, #22c55e);
+      }
+      .arena-outer {
+        perspective: min(520px, 140vw);
+        perspective-origin: 50% 88%;
+        margin-bottom: 0;
+        flex: 1 1 0;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        position: relative;
+        z-index: 1;
+        overflow: hidden;
+        border-radius: clamp(0.55rem, 2.2vmin, 0.95rem);
+      }
+      .arena {
+        position: relative;
+        flex: 1 1 0;
+        min-height: clamp(10.5rem, 32svmin, 14rem);
+        width: 100%;
+        height: auto;
+        max-height: none;
+        border-radius: clamp(0.5rem, 2vmin, 0.85rem);
+        border: 2px solid rgba(251, 191, 36, 0.4);
+        box-shadow: 0 0 24px rgba(245, 158, 11, 0.2), inset 0 0 40px rgba(0, 0, 0, 0.35);
+        background: linear-gradient(180deg, rgba(40, 20, 60, 0.95) 0%, rgba(20, 12, 40, 0.98) 100%);
+        transform-origin: 50% 100%;
+        transform: rotateX(10deg);
+        transform-style: preserve-3d;
+        overflow: hidden;
+      }
+      @media (min-width: 900px) {
+        .arena {
+          max-height: min(82dvh, 38rem);
+        }
+      }
+      @media (max-width: 520px) {
+        .arena {
+          transform: rotateX(6deg);
+          min-height: clamp(9.5rem, 36svmin, 13rem);
+        }
+      }
+      @media (max-height: 640px) {
+        .arena {
+          transform: rotateX(4deg);
+          min-height: clamp(8.5rem, 28svmin, 11rem);
+        }
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+      .asura-name {
+        font-size: clamp(0.68rem, 2.8vmin, 0.92rem);
+        text-align: center;
+        color: #fde68a;
+        opacity: 0.95;
+        margin: 0;
+        font-weight: 600;
+        line-height: 1.2;
+      }
+      .controls {
+        flex: 0 0 auto;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: clamp(0.4rem, 2vmin, 0.65rem);
+        width: 100%;
+        max-width: 100%;
+        margin-inline: auto;
+        padding-top: 0.1rem;
+      }
+      @media (min-width: 600px) {
+        .controls {
+          max-width: min(30rem, 100%);
+        }
+      }
+      .ctrl {
+        padding: clamp(0.42rem, 2vmin, 0.55rem) clamp(0.5rem, 2.5vmin, 0.9rem);
+        font-size: clamp(0.65rem, 2.7vmin, 0.82rem);
+        min-height: max(48px, 2.75rem);
+        border-radius: clamp(0.45rem, 2vmin, 0.6rem);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        background: rgba(255, 255, 255, 0.08);
+        color: #fff;
+        cursor: pointer;
+        font-weight: 600;
+      }
+      @media (max-width: 860px) {
+        .weapons {
+          flex: 0 0 auto;
+          display: flex;
+          gap: clamp(0.22rem, 1.2vmin, 0.35rem);
+          width: 100%;
+        }
+        .weapons h2 {
+          flex: 0 0 auto;
+          margin-bottom: 0;
+        }
+        .weapon-btn {
+          width: clamp(2.4rem, 12vmin, 2.75rem);
+          height: clamp(2.4rem, 12vmin, 2.75rem);
+          font-size: clamp(1.02rem, 4.5vmin, 1.22rem);
+        }
+      }
+      @media (max-height: 760px) {
+        body {
+          gap: 0.28rem;
+          padding-top: max(0.2rem, env(safe-area-inset-top, 0px));
+        }
+        h1 {
+          font-size: clamp(0.55rem, 1.4vmin, 0.68rem);
+        }
+        .asura-name {
+          font-size: clamp(0.58rem, 2.2vmin, 0.72rem);
+        }
+        .hp-row {
+          font-size: clamp(0.52rem, 2vmin, 0.62rem);
+        }
+        .hp-bar {
+          height: clamp(0.42rem, 1.8vmin, 0.52rem);
+        }
+        .hole-btn {
+          min-height: max(44px, 2.4rem);
+          font-size: clamp(0.52rem, 2.2vmin, 0.65rem);
+        }
+        .ctrl {
+          min-height: 44px;
+          padding: 0.32rem 0.5rem;
+          font-size: clamp(0.58rem, 2.4vmin, 0.68rem);
+        }
+        .arena {
+          min-height: clamp(7.5rem, 26svmin, 10rem);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="game-header">
+      <h1>ADI- FG</h1>
+      <p class="game-name">AI Developer India Family Game</p>
+      <p class="asura-name" id="asuraTitle">—</p>
+    </header>
+
+    <div class="layout">
+      <div class="stage-wrap">
+        <div class="hp-row">
+          <span class="label">Asura</span>
+          <div class="hp-bar"><div class="hp-fill" id="hpAsura"></div></div>
+        </div>
+        <div class="arena-outer">
+          <div class="arena">
+            <canvas id="cv" width="360" height="480" aria-label="Combat field"></canvas>
+          </div>
+        </div>
+        <div class="player-deck" aria-label="Your weapons and firing holes">
+          <aside class="weapons" aria-label="Weapons (mock)">
+            <h2>Your weapons</h2>
+            <button type="button" class="weapon-btn active" data-w="0" data-name="Brahmastra" data-dmg="40" title="Brahmastra · 40 dmg">🜂</button>
+            <button type="button" class="weapon-btn" data-w="1" data-name="Āgneyāstra" data-dmg="19" title="Āgneyāstra · 19 dmg">🔥</button>
+            <button type="button" class="weapon-btn" data-w="2" data-name="Vel" data-dmg="28" title="Vel · 28 dmg">🗡️</button>
+            <button type="button" class="weapon-btn" data-w="3" data-name="Gadā" data-dmg="14" title="Gadā · 14 dmg">🔨</button>
+            <button type="button" class="weapon-btn" data-w="4" data-name="Radiance" data-dmg="10" title="Radiance · 10 dmg">✨</button>
+          </aside>
+          <div class="holes" id="holes" aria-label="Fire holes"></div>
+        </div>
+        <div class="hp-row">
+          <span class="label">You</span>
+          <div class="hp-bar"><div class="hp-fill player" id="hpPlayer"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button type="button" class="ctrl" id="btnRestart">Restart wave</button>
+      <button type="button" class="ctrl" id="btnNext">Next asura</button>
+    </div>
+
+    <script>
+      (function () {
+        var ASURAS = [
+          { name: 'Ravana', file: 'ravana-rama.png', hp: 120 },
+          { name: 'Kumbhakarna', file: 'kumbhakarna-rama.png', hp: 140 },
+          { name: 'Mahishasura', file: 'mahishasura-shakthi.png', hp: 130 },
+          { name: 'Kaaliya', file: 'kaaliya-krishna.png', hp: 100 },
+          { name: 'Hiranyakashipu', file: 'hiranyakasipa-narasimha.png', hp: 110 },
+        ];
+        /*
+         * Explicit weapon hierarchy (higher = stronger):
+         * Brahmastra > Vel > Agneyastra > Gada > Radiance.
+         */
+        var WEAPONS = [{ dmg: 40 }, { dmg: 19 }, { dmg: 28 }, { dmg: 14 }, { dmg: 10 }];
+        var HOLE_COUNT = 5;
+        /** Player-side holes: near bottom edge; asura-side Y comes from asuraLayout() */
+        var HOLE_BOTTOM_FRAC = 0.93;
+        /** Bump when replacing PNGs under public/asura or public/weapons */
+        var ASURA_ASSET_VER = '6';
+        var ARROW_ASSET_VER = '6';
+        /** Extra rotation so arrow.png aligns with flight (π/2 = 90°) */
+        var ARROW_ROT_EXTRA = Math.PI / 2;
+
+        var cv = document.getElementById('cv');
+        var ctx = cv.getContext('2d');
+        var hpAsuraEl = document.getElementById('hpAsura');
+        var hpPlayerEl = document.getElementById('hpPlayer');
+        var asuraTitle = document.getElementById('asuraTitle');
+        var holesEl = document.getElementById('holes');
+
+        var dpr = Math.min(window.devicePixelRatio || 1, 2);
+        function resize() {
+          var rect = cv.getBoundingClientRect();
+          var w = Math.max(200, Math.floor(rect.width * dpr));
+          var h = Math.max(260, Math.floor(rect.height * dpr));
+          if (cv.width !== w || cv.height !== h) {
+            cv.width = w;
+            cv.height = h;
+          }
+        }
+        if (typeof ResizeObserver !== 'undefined') {
+          new ResizeObserver(resize).observe(cv.parentElement);
+        } else {
+          window.addEventListener('resize', resize);
+        }
+        resize();
+
+        var asuraIndex = 0;
+        var asuraImg = new Image();
+        var asuraImgLoaded = false;
+        var arrowImg = new Image();
+        var arrowImgLoaded = false;
+        var asuraHpMax = 100;
+        var asuraHp = 100;
+        var playerHpMax = 100;
+        var playerHp = 100;
+        var weaponIndex = 0;
+        var projectiles = [];
+        var lastT = performance.now();
+        var nextEnemyFireAt = 0;
+        var wobbleT = 0;
+        /** Full left-right pan (radians) */
+        var asuraPanPhase = 0;
+        var asuraPanSpeed = 0.85;
+        /** Rush toward player line */
+        var asuraCharging = false;
+        var asuraDrop = 0;
+        var nextChargeAt = 0;
+        var defeatByCharge = false;
+
+        function scheduleNextCharge(now) {
+          /* Delay rush so it doesn't happen immediately on wave start. */
+          nextChargeAt = now + 6200 + Math.random() * 3600;
+        }
+
+        function loadAsura(i) {
+          asuraIndex = ((i % ASURAS.length) + ASURAS.length) % ASURAS.length;
+          var a = ASURAS[asuraIndex];
+          asuraTitle.textContent = a.name;
+          asuraHpMax = a.hp;
+          asuraHp = a.hp;
+          asuraImgLoaded = false;
+          asuraImg.onload = function () {
+            asuraImgLoaded = true;
+          };
+          asuraImg.src = '/asura/' + a.file + '?v=' + ASURA_ASSET_VER;
+          projectiles = [];
+          nextEnemyFireAt = performance.now() + 1300 + Math.random() * 1800;
+          asuraPanPhase = Math.random() * Math.PI * 2;
+          asuraCharging = false;
+          asuraDrop = 0;
+          defeatByCharge = false;
+          scheduleNextCharge(performance.now());
+          updateHpBars();
+        }
+
+        function updateHpBars() {
+          hpAsuraEl.style.transform = 'scaleX(' + Math.max(0, asuraHp / asuraHpMax) + ')';
+          hpPlayerEl.style.transform = 'scaleX(' + Math.max(0, playerHp / playerHpMax) + ')';
+        }
+
+        function holeXs(w, n) {
+          var margin = w * 0.1;
+          var usable = w - 2 * margin;
+          var xs = [];
+          for (var i = 0; i < n; i++) {
+            xs.push(margin + (usable * i) / (n - 1 || 1));
+          }
+          return xs;
+        }
+
+        function spawnPlayerShot(holeIndex) {
+          var w = cv.width;
+          var h = cv.height;
+          var xs = holeXs(w, HOLE_COUNT);
+          var x = xs[holeIndex] != null ? xs[holeIndex] : w / 2;
+          var y = h * HOLE_BOTTOM_FRAC;
+          var spd = 420 * (dpr || 1);
+          projectiles.push({
+            x: x,
+            y: y,
+            vx: 0,
+            vy: -spd,
+            ally: true,
+            dmg: WEAPONS[weaponIndex].dmg,
+          });
+        }
+
+        function spawnEnemyShot() {
+          var w = cv.width;
+          var xs = holeXs(w, HOLE_COUNT);
+          var hi = (Math.random() * HOLE_COUNT) | 0;
+          var x = xs[hi] + (Math.random() - 0.5) * 24 * dpr;
+          var y = asuraLayout().enemyHoleY;
+          var spd = 280 * (dpr || 1);
+          projectiles.push({
+            x: x,
+            y: y,
+            vx: (Math.random() - 0.5) * 40 * dpr,
+            vy: spd,
+            ally: false,
+            dmg: 8 + ((Math.random() * 7) | 0),
+          });
+        }
+
+        function asuraLayout() {
+          var w = cv.width;
+          var h = cv.height;
+          /*
+           * Pack toward top; horizontal = full left-right via sin(phase); vertical += asuraDrop while charging.
+           */
+          var headTop = h * 0.015 + 2 * dpr;
+          var gapBelowFeet = Math.max(3 * dpr, 4);
+          var maxH = Math.max(40 * dpr, h * 0.19);
+          var imgH = maxH;
+          var imgW = asuraImgLoaded ? (imgH * asuraImg.width) / asuraImg.height : imgH * 0.85;
+          var maxW = w * 0.96;
+          if (imgW > maxW) {
+            var scale = maxW / imgW;
+            imgW = maxW;
+            imgH *= scale;
+          }
+          imgH *= 0.5;
+          imgW *= 0.5;
+          var marginX = 8 * dpr;
+          var panRange = Math.max(0, w / 2 - imgW / 2 - marginX);
+          var cx = w / 2 + Math.sin(asuraPanPhase) * panRange;
+          var baseCy = headTop + imgH / 2;
+          var cy = baseCy + asuraDrop;
+          var footY = cy + imgH / 2;
+          /* Enemy fire ports: fixed Y from resting stance only - do not follow charge/rush */
+          var baseFootY = baseCy + imgH / 2;
+          var enemyHoleY = baseFootY + gapBelowFeet;
+          var maxEnemyHole = h * HOLE_BOTTOM_FRAC - h * 0.28;
+          if (enemyHoleY > maxEnemyHole) {
+            enemyHoleY = maxEnemyHole;
+          }
+          return {
+            cx: cx,
+            cy: cy,
+            iw: imgW,
+            ih: imgH,
+            footY: footY,
+            enemyHoleY: enemyHoleY,
+            hit: { w: imgW * 0.7, h: imgH * 0.65 },
+          };
+        }
+
+        function hitPlayerZone(proj) {
+          return proj.y > cv.height * 0.84;
+        }
+
+        /** Ally vs enemy arrows that touch cancel both; avoids double-splice index bugs on mobile. */
+        function resolveProjectileCollisions() {
+          var n = projectiles.length;
+          if (n < 2) return;
+          var dead = new Array(n);
+          for (var z = 0; z < n; z++) dead[z] = false;
+          var rr = 10 * dpr;
+          var rr2 = rr * rr;
+          for (var i = 0; i < n; i++) {
+            if (dead[i]) continue;
+            var pi = projectiles[i];
+            for (var j = i + 1; j < n; j++) {
+              if (dead[j]) continue;
+              var pj = projectiles[j];
+              if (pi.ally === pj.ally) continue;
+              var dx = pi.x - pj.x;
+              var dy = pi.y - pj.y;
+              if (dx * dx + dy * dy <= rr2) {
+                dead[i] = true;
+                dead[j] = true;
+              }
+            }
+          }
+          var out = [];
+          for (var k = 0; k < n; k++) {
+            if (!dead[k]) out.push(projectiles[k]);
+          }
+          projectiles = out;
+        }
+
+        function loop(now) {
+          var dt = Math.min(0.05, (now - lastT) / 1000);
+          lastT = now;
+          wobbleT += dt;
+
+          var w = cv.width;
+          var h = cv.height;
+
+          if (now >= nextEnemyFireAt && asuraHp > 0 && playerHp > 0) {
+            spawnEnemyShot();
+            nextEnemyFireAt = now + 900 + Math.random() * 1400;
+          }
+
+          var chargeSpeed = 760 * dpr;
+          if (asuraHp > 0 && playerHp > 0) {
+            if (asuraCharging) {
+              asuraDrop += chargeSpeed * dt;
+            } else {
+              asuraPanPhase += asuraPanSpeed * dt;
+            }
+            if (!asuraCharging && now >= nextChargeAt) {
+              asuraCharging = true;
+              asuraDrop = 0;
+            }
+            var Lrush = asuraLayout();
+            var lineY = h * HOLE_BOTTOM_FRAC;
+            if (asuraCharging && Lrush.footY >= lineY - 10 * dpr) {
+              defeatByCharge = true;
+              playerHp = 0;
+              updateHpBars();
+            }
+          }
+
+          /*
+           * Arrow cancellation: when enemy and ally arrows meet, both vanish.
+           */
+          resolveProjectileCollisions();
+
+          for (var i = projectiles.length - 1; i >= 0; i--) {
+            var p = projectiles[i];
+            p.x += p.vx * dt;
+            p.y += p.vy * dt;
+            if (p.x < 0 || p.x > w || p.y < -20 || p.y > h + 20) {
+              projectiles.splice(i, 1);
+              continue;
+            }
+            var L = asuraLayout();
+            if (p.ally && asuraHp > 0) {
+              if (
+                Math.abs(p.x - L.cx) < L.hit.w / 2 &&
+                Math.abs(p.y - L.cy) < L.hit.h / 2
+              ) {
+                asuraHp = Math.max(0, asuraHp - p.dmg);
+                projectiles.splice(i, 1);
+                if (asuraHp <= 0) {
+                  asuraCharging = false;
+                  asuraDrop = 0;
+                }
+                updateHpBars();
+                continue;
+              }
+            }
+            if (!p.ally && playerHp > 0 && hitPlayerZone(p)) {
+              playerHp = Math.max(0, playerHp - p.dmg);
+              if (playerHp <= 0) {
+                defeatByCharge = false;
+              }
+              projectiles.splice(i, 1);
+              updateHpBars();
+            }
+          }
+
+          ctx.fillStyle = 'transparent';
+          ctx.clearRect(0, 0, w, h);
+          var grd = ctx.createLinearGradient(0, 0, 0, h);
+          grd.addColorStop(0, 'rgba(60, 30, 90, 0.5)');
+          grd.addColorStop(0.5, 'rgba(30, 15, 50, 0.25)');
+          grd.addColorStop(1, 'rgba(20, 40, 35, 0.35)');
+          ctx.fillStyle = grd;
+          ctx.fillRect(0, 0, w, h);
+
+          var layout = asuraLayout();
+          if (asuraImgLoaded) {
+            ctx.save();
+            ctx.shadowColor = 'rgba(0,0,0,0.45)';
+            ctx.shadowBlur = 12 * dpr;
+            ctx.drawImage(asuraImg, layout.cx - layout.iw / 2, layout.cy - layout.ih / 2, layout.iw, layout.ih);
+            ctx.restore();
+          } else {
+            ctx.fillStyle = 'rgba(180, 80, 80, 0.6)';
+            ctx.fillRect(layout.cx - layout.iw / 2, layout.cy - layout.ih / 2, layout.iw, layout.ih);
+            ctx.fillStyle = '#fca5a5';
+            ctx.font = 12 * dpr + 'px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Loading...', layout.cx, layout.cy);
+          }
+
+          for (var j = 0; j < projectiles.length; j++) {
+            var q = projectiles[j];
+            if (arrowImgLoaded) {
+              var ah = 26 * dpr;
+              var aw = ah * (arrowImg.width / arrowImg.height);
+              ctx.save();
+              ctx.translate(q.x, q.y);
+              /* Assume arrow.png points right; rotate to fly up (ally) or down (enemy) */
+              ctx.rotate((q.ally ? -Math.PI / 2 : Math.PI / 2) + ARROW_ROT_EXTRA);
+              ctx.drawImage(arrowImg, -aw / 2, -ah / 2, aw, ah);
+              ctx.restore();
+            } else {
+              ctx.save();
+              ctx.translate(q.x, q.y);
+              ctx.rotate((q.ally ? -Math.PI / 2 : Math.PI / 2) + ARROW_ROT_EXTRA);
+              ctx.fillStyle = q.ally ? '#fbbf24' : '#f87171';
+              ctx.beginPath();
+              ctx.moveTo(0, -8 * dpr);
+              ctx.lineTo(6 * dpr, 8 * dpr);
+              ctx.lineTo(-6 * dpr, 8 * dpr);
+              ctx.closePath();
+              ctx.fill();
+              ctx.restore();
+            }
+          }
+
+          /* Holes on top of asura + arrows so they read as foreground ports */
+          var topXs2 = holeXs(w, HOLE_COUNT);
+          var botXs2 = holeXs(w, HOLE_COUNT);
+          var enemyHy = layout.enemyHoleY;
+          for (var t = 0; t < HOLE_COUNT; t++) {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.beginPath();
+            ctx.arc(topXs2[t], enemyHy, 5 * dpr, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(botXs2[t], h * HOLE_BOTTOM_FRAC, 5 * dpr, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.strokeStyle = 'rgba(251, 191, 36, 0.65)';
+          ctx.lineWidth = 2.5 * dpr;
+          for (var t2 = 0; t2 < HOLE_COUNT; t2++) {
+            ctx.beginPath();
+            ctx.arc(topXs2[t2], enemyHy, 6 * dpr, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(botXs2[t2], h * HOLE_BOTTOM_FRAC, 6 * dpr, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+
+          if (asuraHp <= 0) {
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.fillRect(0, 0, w, h);
+            ctx.fillStyle = '#fde68a';
+            ctx.font = 'bold ' + 18 * dpr + 'px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Asura defeated', w / 2, h * 0.48);
+            ctx.font = 12 * dpr + 'px sans-serif';
+            ctx.fillText('Next asura ->', w / 2, h * 0.56);
+          }
+          if (playerHp <= 0) {
+            ctx.fillStyle = 'rgba(0,0,0,0.55)';
+            ctx.fillRect(0, 0, w, h);
+            ctx.fillStyle = '#fca5a5';
+            ctx.font = 'bold ' + 18 * dpr + 'px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(defeatByCharge ? 'The asura reached your line!' : 'You were struck down', w / 2, h * 0.5);
+            ctx.font = 12 * dpr + 'px sans-serif';
+            ctx.fillText('Restart wave', w / 2, h * 0.58);
+          }
+
+          requestAnimationFrame(loop);
+        }
+
+        for (var holeInit = 0; holeInit < HOLE_COUNT; holeInit++) {
+          (function (hi) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'hole-btn';
+            b.textContent = '↑ ' + (hi + 1);
+            b.setAttribute('aria-label', 'Fire from hole ' + (hi + 1));
+            b.addEventListener('click', function () {
+              if (asuraHp <= 0 || playerHp <= 0) return;
+              spawnPlayerShot(hi);
+            });
+            holesEl.appendChild(b);
+          })(holeInit);
+        }
+
+        document.querySelectorAll('.weapon-btn').forEach(function (btn) {
+          btn.addEventListener('touchstart', function () {
+            document.querySelectorAll('.weapon-btn').forEach(function (b) {
+              b.classList.remove('tip-touch');
+            });
+            btn.classList.add('tip-touch');
+          }, { passive: true });
+          btn.addEventListener('click', function () {
+            document.querySelectorAll('.weapon-btn').forEach(function (b) {
+              b.classList.remove('active');
+            });
+            btn.classList.add('active');
+            weaponIndex = parseInt(btn.getAttribute('data-w'), 10) || 0;
+          });
+        });
+
+        document.getElementById('btnRestart').addEventListener('click', function () {
+          playerHp = playerHpMax;
+          defeatByCharge = false;
+          loadAsura(asuraIndex);
+          updateHpBars();
+        });
+        document.getElementById('btnNext').addEventListener('click', function () {
+          playerHp = Math.min(playerHpMax, playerHp + 25);
+          loadAsura(asuraIndex + 1);
+          updateHpBars();
+        });
+
+        arrowImg.onload = function () {
+          arrowImgLoaded = true;
+        };
+        arrowImg.onerror = function () {
+          arrowImgLoaded = false;
+        };
+        arrowImg.src = '/weapons/arrow.png?v=' + ARROW_ASSET_VER;
+
+        loadAsura(0);
+        updateHpBars();
+        requestAnimationFrame(loop);
+      })();
+    </script>
+  </body>
+</html>
