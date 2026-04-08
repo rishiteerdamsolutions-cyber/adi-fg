@@ -218,8 +218,10 @@ socket.on('nextCountdown', function (s) {
 
 var cv, ctx;
 var HOLE_COUNT = 5;
-var HOLE_TOP_FRAC = 0.2;     /* unit 2 out of 10 */
-var HOLE_BOTTOM_FRAC = 0.8;  /* unit 8 out of 10 */
+var HOLE_TOP_FRAC = 0.05;    /* holes at top edge (unit 0.5 out of 10) */
+var HOLE_BOTTOM_FRAC = 0.95; /* holes at bottom edge (unit 9.5 out of 10) */
+var AVATAR_TOP_FRAC = 0.2;   /* opponent avatar at unit 2 */
+var AVATAR_BOTTOM_FRAC = 0.8; /* player avatar at unit 8 */
 var dpr = Math.min(window.devicePixelRatio || 1, 2);
 
 /* Images */
@@ -594,7 +596,7 @@ function holeXs(w, n) {
   return xs;
 }
 
-/* ─── Opponent layout (top of canvas, unit 0-1 out of 10) ─── */
+/* ─── Opponent layout (avatar at unit 2, moves side to side) ─── */
 function opLayout() {
   var w = cv.width, h = cv.height;
   var unitH = h / 10;
@@ -602,12 +604,14 @@ function opLayout() {
   var imgW = opAvatarLoaded ? (imgH * opAvatarImg.width / opAvatarImg.height) : imgH * 0.7;
   var maxW = w * 0.3;
   if (imgW > maxW) { var sc = maxW / imgW; imgW = maxW; imgH *= sc; }
-  var cx = w / 2; /* centered, no panning for small avatar */
-  var cy = unitH * 0.5; /* center of unit 0-1 */
-  return { cx: cx, cy: cy, iw: imgW, ih: imgH, footY: unitH };
+  var marginX = 10 * dpr;
+  var panRange = Math.max(0, w / 2 - imgW / 2 - marginX);
+  var cx = w / 2 + Math.sin(phaseForFighter(opFighter)) * panRange;
+  var cy = h * AVATAR_TOP_FRAC; /* unit 2 */
+  return { cx: cx, cy: cy, iw: imgW, ih: imgH, footY: cy + imgH / 2 };
 }
 
-/* ─── My layout (bottom of canvas, unit 9-10 out of 10) ─── */
+/* ─── My layout (avatar at unit 8, moves side to side) ─── */
 function myLayout() {
   var w = cv.width, h = cv.height;
   var unitH = h / 10;
@@ -615,9 +619,11 @@ function myLayout() {
   var imgW = myAvatarLoaded ? (imgH * myAvatarImg.width / myAvatarImg.height) : imgH * 0.7;
   var maxW = w * 0.3;
   if (imgW > maxW) { var sc = maxW / imgW; imgW = maxW; imgH *= sc; }
-  var cx = w / 2; /* centered */
-  var cy = h - unitH * 0.5; /* center of unit 9-10 */
-  return { cx: cx, cy: cy, iw: imgW, ih: imgH, headY: h - unitH };
+  var marginX = 10 * dpr;
+  var panRange = Math.max(0, w / 2 - imgW / 2 - marginX);
+  var cx = w / 2 + Math.sin(phaseForFighter(myFighter)) * panRange;
+  var cy = h * AVATAR_BOTTOM_FRAC; /* unit 8 */
+  return { cx: cx, cy: cy, iw: imgW, ih: imgH, headY: cy - imgH / 2 };
 }
 
 /* ─── Spawn projectiles ─── */
