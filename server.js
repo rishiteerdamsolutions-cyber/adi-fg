@@ -2,8 +2,6 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 
-const crypto = require('crypto');
-
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
@@ -13,17 +11,19 @@ app.use(express.static('public'));
 
 /* ─── 10 Characters ─── */
 const FAMILY = [
-  { id: 0, name: 'Dronacharya',  avatar: '/avatars/1.png',  weapon: '/weapons/1.png',  weaponName: 'Staff',       dmg: 12 },
-  { id: 1, name: 'Shakti',       avatar: '/avatars/2.png',  weapon: '/weapons/2.png',  weaponName: 'Crossbow',    dmg: 22 },
-  { id: 2, name: 'Bheem',        avatar: '/avatars/3.png',  weapon: '/weapons/3.png',  weaponName: 'War Hammer',  dmg: 28 },
-  { id: 3, name: 'Durga',        avatar: '/avatars/4.png',  weapon: '/weapons/4.png',  weaponName: 'Sword',       dmg: 24 },
-  { id: 4, name: 'Arjun',        avatar: '/avatars/5.png',  weapon: '/weapons/5.png',  weaponName: 'Gun',         dmg: 30 },
-  { id: 5, name: 'Meera',        avatar: '/avatars/6.png',  weapon: '/weapons/6.png',  weaponName: 'Bow & Arrow', dmg: 20 },
-  { id: 6, name: 'Chintu',       avatar: '/avatars/7.png',  weapon: '/weapons/7.png',  weaponName: 'Slingshot',   dmg: 10 },
-  { id: 7, name: 'Veer',         avatar: '/avatars/8.png',  weapon: '/weapons/8.png',  weaponName: 'Battle Axe',  dmg: 26 },
-  { id: 8, name: 'Agni',         avatar: '/avatars/9.png',  weapon: '/weapons/9.png',  weaponName: 'Spear',       dmg: 24 },
-  { id: 9, name: 'Rudra',        avatar: '/avatars/10.png', weapon: '/weapons/10.png', weaponName: 'Trident',     dmg: 22 },
+  { id: 0, name: 'Dronacharya',  avatar: '/avatars/1.png',  weapon: '/weapons/1.png',  weaponName: 'Staff',       dmg: 10 },
+  { id: 1, name: 'Shakti',       avatar: '/avatars/2.png',  weapon: '/weapons/2.png',  weaponName: 'Crossbow',    dmg: 18 },
+  { id: 2, name: 'Bheem',        avatar: '/avatars/3.png',  weapon: '/weapons/3.png',  weaponName: 'War Hammer',  dmg: 24 },
+  { id: 3, name: 'Durga',        avatar: '/avatars/4.png',  weapon: '/weapons/4.png',  weaponName: 'Sword',       dmg: 20 },
+  { id: 4, name: 'Arjun',        avatar: '/avatars/5.png',  weapon: '/weapons/5.png',  weaponName: 'Gun',         dmg: 25 },
+  { id: 5, name: 'Meera',        avatar: '/avatars/6.png',  weapon: '/weapons/6.png',  weaponName: 'Bow & Arrow', dmg: 16 },
+  { id: 6, name: 'Chintu',       avatar: '/avatars/7.png',  weapon: '/weapons/7.png',  weaponName: 'Slingshot',   dmg: 8 },
+  { id: 7, name: 'Veer',         avatar: '/avatars/8.png',  weapon: '/weapons/8.png',  weaponName: 'Battle Axe',  dmg: 22 },
+  { id: 8, name: 'Agni',         avatar: '/avatars/9.png',  weapon: '/weapons/9.png',  weaponName: 'Spear',       dmg: 20 },
+  { id: 9, name: 'Rudra',        avatar: '/avatars/10.png', weapon: '/weapons/10.png', weaponName: 'Trident',     dmg: 18 },
 ];
+
+const MAX_HP = 300;
 
 /* ─── Lobby ─── */
 const lobby = {
@@ -33,8 +33,6 @@ const lobby = {
   timerInt: null,
   status: 'waiting',
 };
-
-const MAX_HP = 200;
 
 /* ─── Game ─── */
 const game = {
@@ -54,15 +52,6 @@ function pubLobby() {
   return { players: lobbyList(), timerSec: lobby.timerSec, status: lobby.status, count: Object.keys(lobby.players).length };
 }
 
-/* ─── Secure Shuffle (Fisher-Yates with crypto) ─── */
-function secureShuffle(array) {
-  for (let i = array.length - 1; i > 0; i--) {
-    const j = crypto.randomInt(0, i + 1);
-    [array[i], array[j]] = [array[j], array[i]];
-  }
-  return array;
-}
-
 /* ─── Timer ─── */
 function startTimer() {
   if (lobby.timerInt) clearInterval(lobby.timerInt);
@@ -80,34 +69,12 @@ function resetTimer() {
   if (!lobby.timerInt) startTimer();
 }
 
-/* ─── Start Game with Fairness Logic ─── */
+/* ─── Start Game ─── */
 function tryStart() {
   const ids = Object.keys(lobby.players);
   if (ids.length < 2) { io.emit('lobbyMsg', 'Need 2+ players. Timer reset.'); resetTimer(); return; }
 
-  // Sort by gamesPlayed (priority to those who played less), then randomize within levels
-  const candidates = [...ids].sort((a, b) => {
-    const pA = lobby.players[a];
-    const pB = lobby.players[b];
-    if (pA.gamesPlayed !== pB.gamesPlayed) return pA.gamesPlayed - pB.gamesPlayed;
-    return 0; // fallback to random
-  });
-
-  // Group by same gamesPlayed and shuffle those groups
-  const playCounts = Array.from(new Set(candidates.map(id => lobby.players[id].gamesPlayed))).sort((a, b) => a - b);
-  let finalSelection = [];
-  for (const count of playCounts) {
-    const group = candidates.filter(id => lobby.players[id].gamesPlayed === count);
-    finalSelection = finalSelection.concat(secureShuffle(group));
-    if (finalSelection.length >= 2) break;
-  }
-
-  const [a, b] = finalSelection.slice(0, 2);
-  
-  // Update play counts
-  lobby.players[a].gamesPlayed++;
-  lobby.players[b].gamesPlayed++;
-
+  const [a, b] = [...ids].sort(() => Math.random() - 0.5);
   const c1 = characterForPlayer(lobby.players[a].num);
   const c2 = characterForPlayer(lobby.players[b].num);
 
@@ -124,7 +91,6 @@ function tryStart() {
   if (lobby.timerInt) { clearInterval(lobby.timerInt); lobby.timerInt = null; }
 
   io.emit('gameStart', pubGame());
-  io.emit('lobbyUpdate', pubLobby()); // Update UI to reflect games played if needed
 }
 
 function pubGame() {
@@ -146,13 +112,13 @@ function clampNum(value, min, max, fallback) {
 function damageForMove(baseDmg, move) {
   const multipliers = {
     normal: 1,
-    double: 1.4,
-    power: 2.1,
-    split: 1.1,
-    spread: 1.2,
-    heavy: 1.8,
-    rapid: 0.75,
-    pierce: 1.6,
+    double: 1.3,
+    power: 1.8,
+    split: 1.05,
+    spread: 1.15,
+    heavy: 1.6,
+    rapid: 0.7,
+    pierce: 1.4,
   };
   return Math.max(1, Math.round(baseDmg * (multipliers[move] || 1)));
 }
@@ -180,7 +146,7 @@ io.on('connection', (socket) => {
     if (!username || !username.trim()) return cb({ ok: false, msg: 'Enter a name.' });
     const name = username.trim().slice(0, 12);
     const num = lobby.nextNum++;
-    lobby.players[socket.id] = { id: socket.id, username: name, num, gamesPlayed: 0 };
+    lobby.players[socket.id] = { id: socket.id, username: name, num };
     if (Object.keys(lobby.players).length === 1 && !lobby.timerInt) startTimer();
     cb({ ok: true, num });
     io.emit('lobbyUpdate', pubLobby());
@@ -219,13 +185,6 @@ io.on('connection', (socket) => {
     if (opId) io.to(opId).emit('enemyFire', shot);
     // Also relay to spectators so they see the action
     game.spectators.forEach(sid => io.to(sid).emit('specFire', shot));
-  });
-
-  socket.on('secretMove', (data) => {
-    if (!game.fighters[socket.id]) return;
-    const opId = game.fighterIds.find(x => x !== socket.id);
-    if (opId) io.to(opId).emit('enemySecretMove', data);
-    game.spectators.forEach(sid => io.to(sid).emit('enemySecretMove', { ...data, fromId: socket.id }));
   });
 
   // Player reports taking damage (enemy arrow hit their zone)

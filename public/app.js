@@ -227,8 +227,8 @@ var myWeaponLoaded = false;
 var opWeaponImg = new Image();
 var opWeaponLoaded = false;
 
-var myHp = 200, myMaxHp = 200;
-var opHp = 200, opMaxHp = 200;
+var myHp = 300, myMaxHp = 300;
+var opHp = 300, opMaxHp = 300;
 var myDmg = 20;
 
 var projectiles = [];
@@ -315,46 +315,6 @@ function moveDamage(baseDmg, move) {
 
 function nextShotId() {
   return socket.id + ':' + Date.now() + ':' + (shotSeq++);
-}
-
-var smokeParticles = [];
-function spawnSmoke(cx, cy) {
-  for (var i = 0; i < 30; i++) {
-    smokeParticles.push({
-      x: cx + (Math.random() - 0.5) * 60,
-      y: cy + (Math.random() - 0.5) * 40,
-      r: 20 + Math.random() * 30,
-      vx: (Math.random() - 0.5) * 40,
-      vy: (Math.random() - 0.5) * 40,
-      life: 1.0,
-      decay: 0.01 + Math.random() * 0.02
-    });
-  }
-}
-
-function updateSmoke(dt) {
-  for (var i = smokeParticles.length - 1; i >= 0; i--) {
-    var p = smokeParticles[i];
-    p.x += p.vx * dt;
-    p.y += p.vy * dt;
-    p.life -= p.decay;
-    if (p.life <= 0) smokeParticles.splice(i, 1);
-  }
-}
-
-function drawSmoke() {
-  ctx.save();
-  for (var i = 0; i < smokeParticles.length; i++) {
-    var p = smokeParticles[i];
-    var grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r);
-    grad.addColorStop(0, 'rgba(200, 200, 200, ' + (p.life * 0.4) + ')');
-    grad.addColorStop(1, 'rgba(150, 150, 150, 0)');
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.restore();
 }
 
 function battleClockSec() {
@@ -506,15 +466,14 @@ function setupBattle() {
   myDmg = myFighter.char.dmg;
 
   /* ─── POWER MOVE COMBO SYSTEM ─── */
+  /*
+   * 1 lane = normal weapon throw.
+   * 2 lanes within the window = double shot.
+   * 3+ lanes within the window = weapon-specific power move.
+   */
   var comboWindow = 250; /* ms to detect near-simultaneous presses */
   var pendingLanes = [];
   var comboTimer = null;
-  
-  /* Pattern counters */
-  var smokePatternCount = 0;
-  var wallPatternCount = 0;
-  var mySmokeActive = false;
-  var opSmokeActive = false;
 
   function fireCombo() {
     if (!gameRunning || !amFighter) return;
@@ -522,23 +481,6 @@ function setupBattle() {
     var lanes = uniqueSortedLanes(pendingLanes);
     pendingLanes = [];
     comboTimer = null;
-
-    /* Secret Move Detection */
-    if (lanes.length === 2 && lanes.indexOf(0) !== -1 && lanes.indexOf(4) !== -1) {
-      smokePatternCount++;
-      if (smokePatternCount >= 3) {
-        smokePatternCount = 0;
-        triggerSmoke();
-      }
-    } else if (lanes.length === 5) {
-      wallPatternCount++;
-      if (wallPatternCount >= 5) {
-        wallPatternCount = 0;
-        triggerGreatWall();
-      }
-    } else {
-      /* Reset counters if other combos used? User said "repeatedly", maybe don't reset completely */
-    }
 
     if (lanes.length >= 3) {
       showPowerEffect(myFighter.char.weaponName + ' POWER MOVE!');
@@ -548,34 +490,6 @@ function setupBattle() {
 
     buildComboShots(lanes).forEach(sendPlayerShot);
   }
-
-  function triggerSmoke() {
-    mySmokeActive = true;
-    showPowerEffect('💨 SMOKE STEALTH!');
-    socket.emit('secretMove', { type: 'smoke', active: true });
-    setTimeout(function() {
-      mySmokeActive = false;
-      socket.emit('secretMove', { type: 'smoke', active: false });
-    }, 5000);
-  }
-
-  function triggerGreatWall() {
-    showPowerEffect('🧱 GREAT WALL OF WEAPONS!');
-    var wallShots = [];
-    for (var l = 0; l < HOLE_COUNT; l++) {
-      /* 3 weapons per lane to make it "thick" */
-      for (var row = 0; row < 3; row++) {
-        wallShots.push(shotSpec(l, 'heavy', { scale: 1.5, speed: 70, offset: (row - 1) * 20 }));
-      }
-    }
-    wallShots.forEach(sendPlayerShot);
-  }
-
-  socket.on('enemySecretMove', function(data) {
-    if (data.type === 'smoke') {
-      opSmokeActive = data.active;
-    }
-  });
 
   function showPowerEffect(text) {
     /* Screen flash */
@@ -900,57 +814,44 @@ function loop(now) {
   }
 
   /* ─── Draw OPPONENT avatar (top) ─── */
-  /* Hide if smoke active */
-  if (opSmokeActive) {
-    spawnSmoke(OL.cx, OL.cy);
-  } else {
-    /* Opponent name label — only user-entered name, NOT character names */
-    ctx.fillStyle = '#fca5a5';
-    ctx.font = 'bold ' + Math.round(10 * dpr) + 'px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(opFighter.username, OL.cx, OL.cy - OL.ih / 2 - 4 * dpr);
+  /* Opponent name label — only user-entered name, NOT character names */
+  ctx.fillStyle = '#fca5a5';
+  ctx.font = 'bold ' + Math.round(10 * dpr) + 'px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(opFighter.username, OL.cx, OL.cy - OL.ih / 2 - 4 * dpr);
 
-    if (opAvatarLoaded) {
-      ctx.save();
-      ctx.shadowColor = 'rgba(185, 28, 28, 0.7)';
-      ctx.shadowBlur = 22 * dpr;
-      /* source-over: renders avatar fully visible on the canvas */
-      ctx.globalCompositeOperation = 'source-over';
-      ctx.drawImage(opAvatarImg, OL.cx - OL.iw / 2, OL.cy - OL.ih / 2, OL.iw, OL.ih);
-      ctx.restore();
-    } else {
-      ctx.fillStyle = 'rgba(180, 80, 80, 0.4)';
-      ctx.fillRect(OL.cx - OL.iw / 2, OL.cy - OL.ih / 2, OL.iw, OL.ih);
-    }
+  if (opAvatarLoaded) {
+    ctx.save();
+    ctx.shadowColor = 'rgba(185, 28, 28, 0.7)';
+    ctx.shadowBlur = 22 * dpr;
+    /* source-over: renders avatar fully visible on the canvas */
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.drawImage(opAvatarImg, OL.cx - OL.iw / 2, OL.cy - OL.ih / 2, OL.iw, OL.ih);
+    ctx.restore();
+  } else {
+    ctx.fillStyle = 'rgba(180, 80, 80, 0.4)';
+    ctx.fillRect(OL.cx - OL.iw / 2, OL.cy - OL.ih / 2, OL.iw, OL.ih);
   }
 
   /* ─── Draw MY avatar (bottom) ─── */
-  if (mySmokeActive) {
-    spawnSmoke(ML.cx, ML.cy);
+  /* My name label — only user-entered name */
+  ctx.fillStyle = '#86efac';
+  ctx.font = 'bold ' + Math.round(10 * dpr) + 'px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(myFighter.username, ML.cx, ML.cy + ML.ih / 2 + 12 * dpr);
+
+  if (myAvatarLoaded) {
+    ctx.save();
+    ctx.shadowColor = 'rgba(34, 197, 94, 0.6)';
+    ctx.shadowBlur = 22 * dpr;
+    /* source-over: renders avatar fully visible on the canvas */
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.drawImage(myAvatarImg, ML.cx - ML.iw / 2, ML.cy - ML.ih / 2, ML.iw, ML.ih);
+    ctx.restore();
   } else {
-    /* My name label — only user-entered name */
-    ctx.fillStyle = '#86efac';
-    ctx.font = 'bold ' + Math.round(10 * dpr) + 'px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(myFighter.username, ML.cx, ML.cy + ML.ih / 2 + 12 * dpr);
-
-    if (myAvatarLoaded) {
-      ctx.save();
-      ctx.shadowColor = 'rgba(34, 197, 94, 0.6)';
-      ctx.shadowBlur = 22 * dpr;
-      /* source-over: renders avatar fully visible on the canvas */
-      ctx.globalCompositeOperation = 'source-over';
-      ctx.drawImage(myAvatarImg, ML.cx - ML.iw / 2, ML.cy - ML.ih / 2, ML.iw, ML.ih);
-      ctx.restore();
-    } else {
-      ctx.fillStyle = 'rgba(80, 180, 80, 0.4)';
-      ctx.fillRect(ML.cx - ML.iw / 2, ML.cy - ML.ih / 2, ML.iw, ML.ih);
-    }
+    ctx.fillStyle = 'rgba(80, 180, 80, 0.4)';
+    ctx.fillRect(ML.cx - ML.iw / 2, ML.cy - ML.ih / 2, ML.iw, ML.ih);
   }
-
-  /* Update and draw smoke */
-  updateSmoke(dt);
-  drawSmoke();
 
   /* ─── Draw PROJECTILES as weapon images ─── */
   var PROJ_SIZE = 22 * dpr;
