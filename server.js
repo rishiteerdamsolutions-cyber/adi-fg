@@ -25,82 +25,109 @@ const FAMILY = [
 
 const MAX_HP = 300;
 
-/* ─── Lobby ─── */
-const lobby = {
-  players: {},
-  nextNum: 1,
-  timerSec: 120,
-  timerInt: null,
-  status: 'waiting',
-};
+/* ─── Rooms Architecture ─── */
+const rooms = {};
 
-/* ─── Game ─── */
-const game = {
-  fighterIds: [],
-  fighters: {},
-  spectators: [],
-  hitIds: new Set(),
-  startedAt: null,
-  status: 'idle', // idle | playing | finished
-};
-
-function lobbyList() {
-  return Object.values(lobby.players).sort((a, b) => a.num - b.num);
+function getRoom(roomId) {
+  if (!rooms[roomId]) {
+    rooms[roomId] = {
+      id: roomId,
+      players: {}, // Maps socket.id -> { id, userId, username, num }
+      users: {},   // Maps userId -> { wins, username } (Persistence)
+      nextNum: 1,
+      timerSec: 120,
+      timerInt: null,
+      status: 'waiting',
+      
+      // Game State
+      fighterIds: [],
+      fighters: {},
+      spectators: [],
+      hitIds: new Set(),
+      startedAt: null,
+      
+      // Rotation logic
+      charDeck: [],
+      playerCounts: {} // userId -> matches played
+    };
+  }
+  return rooms[roomId];
 }
 
-function pubLobby() {
-  return { players: lobbyList(), timerSec: lobby.timerSec, status: lobby.status, count: Object.keys(lobby.players).length };
+function getCharFromDeck(room) {
+  if (room.charDeck.length === 0) {
+    room.charDeck = FAMILY.map((_, i) => i).sort(() => Math.random() - 0.5);
+  }
+  const index = room.charDeck.pop();
+  return { ...FAMILY[index], assetIndex: index + 1 };
+}
+
+function lobbyList(room) {
+  return Object.values(room.players).sort((a, b) => a.num - b.num).map(p => {
+    return { ...p, wins: room.users[p.userId] ? room.users[p.userId].wins : 0 };
+  });
+}
+
+function pubLobby(room) {
+  return { players: lobbyList(room), timerSec: room.timerSec, status: room.status, count: Object.keys(room.players).length };
+}
+
+function pubGame(room) {
+  return { fighters: room.fighters, fighterIds: room.fighterIds, status: room.status, startedAt: room.startedAt };
 }
 
 /* ─── Timer ─── */
-function startTimer() {
-  if (lobby.timerInt) clearInterval(lobby.timerInt);
-  lobby.timerSec = 120;
-  lobby.status = 'waiting';
-  lobby.timerInt = setInterval(() => {
-    lobby.timerSec--;
-    io.emit('timerTick', lobby.timerSec);
-    if (lobby.timerSec <= 0) { clearInterval(lobby.timerInt); lobby.timerInt = null; tryStart(); }
+function startTimer(room) {
+  if (room.timerInt) clearInterval(room.timerInt);
+  room.timerSec = 120;
+  room.status = 'waiting';
+  room.timerInt = setInterval(() => {
+    room.timerSec--;
+    io.to(room.id).emit('timerTick', room.timerSec);
+    if (room.timerSec <= 0) { clearInterval(room.timerInt); room.timerInt = null; tryStart(room); }
   }, 1000);
 }
 
-function resetTimer() {
-  lobby.timerSec = 120;
-  if (!lobby.timerInt) startTimer();
+function resetTimer(room) {
+  room.timerSec = 120;
+  if (!room.timerInt) startTimer(room);
 }
 
 /* ─── Start Game ─── */
-function tryStart() {
-  const ids = Object.keys(lobby.players);
-  if (ids.length < 2) { io.emit('lobbyMsg', 'Need 2+ players. Timer reset.'); resetTimer(); return; }
+function tryStart(room) {
+  const ids = Object.keys(room.players);
+  if (ids.length < 2) { io.to(room.id).emit('lobbyMsg', 'Need 2+ players. Timer reset.'); resetTimer(room); return; }
 
-  const [a, b] = [...ids].sort(() => Math.random() - 0.5);
-  const c1 = characterForPlayer(lobby.players[a].num);
-  const c2 = characterForPlayer(lobby.players[b].num);
+  // Select least played users
+  const candidates = [...ids].sort((a, b) => {
+    const pA = room.players[a].userId;
+    const pB = room.players[b].userId;
+    const countA = room.playerCounts[pA] || 0;
+    const countB = room.playerCounts[pB] || 0;
+    if (countA === countB) return Math.random() - 0.5;
+    return countA - countB;
+  });
 
-  game.fighters = {};
-  game.fighters[a] = { id: a, username: lobby.players[a].username, num: lobby.players[a].num, char: c1, hp: MAX_HP, maxHp: MAX_HP };
-  game.fighters[b] = { id: b, username: lobby.players[b].username, num: lobby.players[b].num, char: c2, hp: MAX_HP, maxHp: MAX_HP };
-  game.fighterIds = [a, b];
-  game.spectators = ids.filter(x => x !== a && x !== b);
-  game.hitIds = new Set();
-  game.startedAt = Date.now();
-  game.status = 'playing';
+  const [a, b] = [candidates[0], candidates[1]];
+  
+  room.playerCounts[room.players[a].userId] = (room.playerCounts[room.players[a].userId] || 0) + 1;
+  room.playerCounts[room.players[b].userId] = (room.playerCounts[room.players[b].userId] || 0) + 1;
 
-  lobby.status = 'playing';
-  if (lobby.timerInt) { clearInterval(lobby.timerInt); lobby.timerInt = null; }
+  const c1 = getCharFromDeck(room);
+  const c2 = getCharFromDeck(room);
 
-  io.emit('gameStart', pubGame());
-}
+  room.fighters = {};
+  room.fighters[a] = { id: a, username: room.players[a].username, num: room.players[a].num, char: c1, hp: MAX_HP, maxHp: MAX_HP };
+  room.fighters[b] = { id: b, username: room.players[b].username, num: room.players[b].num, char: c2, hp: MAX_HP, maxHp: MAX_HP };
+  room.fighterIds = [a, b];
+  room.spectators = ids.filter(x => x !== a && x !== b);
+  room.hitIds = new Set();
+  room.startedAt = Date.now();
+  room.status = 'playing';
 
-function pubGame() {
-  return { fighters: game.fighters, fighterIds: game.fighterIds, status: game.status, startedAt: game.startedAt };
-}
+  if (room.timerInt) { clearInterval(room.timerInt); room.timerInt = null; }
 
-function characterForPlayer(num) {
-  const index = ((num - 1) % FAMILY.length + FAMILY.length) % FAMILY.length;
-  const base = FAMILY[index];
-  return { ...base, assetIndex: index + 1 };
+  io.to(room.id).emit('gameStart', pubGame(room));
 }
 
 function clampNum(value, min, max, fallback) {
@@ -110,125 +137,166 @@ function clampNum(value, min, max, fallback) {
 }
 
 function damageForMove(baseDmg, move) {
-  const multipliers = {
-    normal: 1,
-    double: 1.3,
-    power: 1.8,
-    split: 1.05,
-    spread: 1.15,
-    heavy: 1.6,
-    rapid: 0.7,
-    pierce: 1.4,
-  };
+  const multipliers = { normal: 1, double: 1.3, power: 1.8, split: 1.05, spread: 1.15, heavy: 1.6, rapid: 0.7, pierce: 1.4 };
   return Math.max(1, Math.round(baseDmg * (multipliers[move] || 1)));
 }
 
-function handleGameOver(winnerId) {
-  game.status = 'finished';
-  const winner = game.fighters[winnerId] || null;
-  io.emit('gameOver', { ...pubGame(), winner });
+function handleGameOver(room, winnerId) {
+  room.status = 'finished';
+  const winner = room.fighters[winnerId] || null;
+  
+  if (winner) {
+    const winnerUid = room.players[winnerId].userId;
+    room.users[winnerUid].wins = (room.users[winnerUid].wins || 0) + 1;
+  }
+  
+  io.to(room.id).emit('gameOver', { ...pubGame(room), winner });
+  io.to(room.id).emit('lobbyUpdate', pubLobby(room)); // Update wins
 
   setTimeout(() => {
-    game.status = 'idle'; game.fighters = {}; game.fighterIds = []; game.spectators = []; game.hitIds = new Set(); game.startedAt = null;
-    if (Object.keys(lobby.players).length >= 2) {
-      lobby.status = 'waiting';
+    room.status = 'idle'; room.fighters = {}; room.fighterIds = []; room.spectators = []; room.hitIds = new Set(); room.startedAt = null;
+    if (Object.keys(room.players).length >= 2) {
+      room.status = 'waiting';
       let cd = 5;
-      io.emit('nextCountdown', cd);
-      const iv = setInterval(() => { cd--; io.emit('nextCountdown', cd); if (cd <= 0) { clearInterval(iv); tryStart(); } }, 1000);
-    } else { lobby.status = 'waiting'; io.emit('lobbyUpdate', pubLobby()); resetTimer(); }
+      io.to(room.id).emit('nextCountdown', cd);
+      room.timerInt = setInterval(() => { cd--; io.to(room.id).emit('nextCountdown', cd); if (cd <= 0) { clearInterval(room.timerInt); room.timerInt = null; tryStart(room); } }, 1000);
+    } else { room.status = 'waiting'; io.to(room.id).emit('lobbyUpdate', pubLobby(room)); resetTimer(room); }
   }, 6000);
 }
 
 /* ─── Sockets ─── */
 io.on('connection', (socket) => {
+  let myRoomId = null;
 
-  socket.on('joinLobby', ({ username }, cb) => {
+  socket.on('joinLobby', ({ username, roomId, userId }, cb) => {
     if (!username || !username.trim()) return cb({ ok: false, msg: 'Enter a name.' });
+    if (!roomId || !roomId.trim()) return cb({ ok: false, msg: 'Enter a room.' });
+    if (!userId) return cb({ ok: false, msg: 'Error identifying user session.' });
+    
+    myRoomId = roomId.trim().toUpperCase();
+    socket.join(myRoomId);
+    
     const name = username.trim().slice(0, 12);
-    const num = lobby.nextNum++;
-    lobby.players[socket.id] = { id: socket.id, username: name, num };
-    if (Object.keys(lobby.players).length === 1 && !lobby.timerInt) startTimer();
-    cb({ ok: true, num });
-    io.emit('lobbyUpdate', pubLobby());
-    if (game.status === 'playing') { game.spectators.push(socket.id); socket.emit('gameStart', pubGame()); }
-  });
+    const room = getRoom(myRoomId);
+    
+    // Setup persistence
+    if (!room.users[userId]) room.users[userId] = { wins: 0, username: name };
 
-  socket.on('forceStart', () => {
-    if (lobby.status === 'playing') return;
-    if (lobby.timerInt) { clearInterval(lobby.timerInt); lobby.timerInt = null; }
-    tryStart();
-  });
-
-  /* ─── Real-Time Combat Events ─── */
-
-  // Player fires an arrow from a lane
-  socket.on('fire', (payload = {}) => {
-    if (game.status !== 'playing' || !game.fighters[socket.id]) return;
-    const me = game.fighters[socket.id];
-    const opId = game.fighterIds.find(x => x !== socket.id);
-    const lane = Math.round(clampNum(payload.lane, 0, 4, 0));
-    const move = typeof payload.move === 'string' ? payload.move.slice(0, 20) : (payload.power ? 'power' : 'normal');
-    const shotId = typeof payload.shotId === 'string' ? payload.shotId.slice(0, 80) : `${socket.id}:${Date.now()}:${Math.random()}`;
-    const shot = {
-      fromId: socket.id,
-      lane,
-      dmg: damageForMove(me.char.dmg, move),
-      move,
-      big: !!payload.big || move === 'power' || move === 'heavy',
-      shotId,
-      speed: clampNum(payload.speed, 220, 760, 420),
-      offset: clampNum(payload.offset, -70, 70, 0),
-      vx: clampNum(payload.vx, -160, 160, 0),
-      scale: clampNum(payload.scale, 0.6, 2.8, 1),
-    };
-    // Relay to opponent: an enemy arrow appears on their screen
-    if (opId) io.to(opId).emit('enemyFire', shot);
-    // Also relay to spectators so they see the action
-    game.spectators.forEach(sid => io.to(sid).emit('specFire', shot));
-  });
-
-  // Player reports taking damage (enemy arrow hit their zone)
-  socket.on('takeDamage', ({ dmg, hitId } = {}) => {
-    if (game.status !== 'playing' || !game.fighters[socket.id]) return;
-    const id = typeof hitId === 'string' ? hitId.slice(0, 80) : `${socket.id}:${Date.now()}:${Math.random()}`;
-    if (game.hitIds.has(id)) return;
-    game.hitIds.add(id);
-    const me = game.fighters[socket.id];
-    const safeDmg = clampNum(dmg, 1, 120, 1);
-    me.hp = Math.max(0, me.hp - safeDmg);
-    io.emit('hpUpdate', { id: socket.id, hp: me.hp, maxHp: me.maxHp });
-    if (me.hp <= 0) {
-      const winnerId = game.fighterIds.find(x => x !== socket.id);
-      handleGameOver(winnerId);
+    const num = room.nextNum++;
+    room.players[socket.id] = { id: socket.id, userId, username: name, num };
+    
+    if (Object.keys(room.players).length === 1 && !room.timerInt) startTimer(room);
+    
+    cb({ ok: true, num, wins: room.users[userId].wins });
+    io.to(myRoomId).emit('lobbyUpdate', pubLobby(room));
+    
+    if (room.status === 'playing') {
+      room.spectators.push(socket.id);
+      socket.emit('gameStart', pubGame(room));
     }
   });
 
-  // Player reports hitting their opponent (ally arrow hit opponent avatar)
+  socket.on('forceStart', () => {
+    if (!myRoomId) return;
+    const room = getRoom(myRoomId);
+    if (room.status === 'playing') return;
+    if (room.timerInt) { clearInterval(room.timerInt); room.timerInt = null; }
+    tryStart(room);
+  });
+
+  /* ─── Emotes ─── */
+  socket.on('emote', (emoji) => {
+    if (!myRoomId) return;
+    const room = getRoom(myRoomId);
+    if (room.players[socket.id]) {
+      io.to(myRoomId).emit('showEmote', { id: socket.id, emoji, username: room.players[socket.id].username });
+    }
+  });
+
+  /* ─── Real-Time Combat Events ─── */
+  socket.on('fire', (payload = {}) => {
+    if (!myRoomId) return;
+    const room = getRoom(myRoomId);
+    if (room.status !== 'playing' || !room.fighters[socket.id]) return;
+    
+    const me = room.fighters[socket.id];
+    const opId = room.fighterIds.find(x => x !== socket.id);
+    const lane = Math.round(clampNum(payload.lane, 0, 4, 0));
+    const move = typeof payload.move === 'string' ? payload.move.slice(0, 20) : (payload.power ? 'power' : 'normal');
+    const shotId = typeof payload.shotId === 'string' ? payload.shotId.slice(0, 80) : `${socket.id}:${Date.now()}:${Math.random()}`;
+    
+    const shot = {
+      fromId: socket.id, lane, dmg: damageForMove(me.char.dmg, move), move,
+      big: !!payload.big || move === 'power' || move === 'heavy', shotId,
+      speed: clampNum(payload.speed, 220, 760, 420), offset: clampNum(payload.offset, -70, 70, 0),
+      vx: clampNum(payload.vx, -160, 160, 0), scale: clampNum(payload.scale, 0.6, 2.8, 1),
+    };
+    
+    if (opId) io.to(opId).emit('enemyFire', shot);
+    room.spectators.forEach(sid => io.to(sid).emit('specFire', shot));
+  });
+
+  socket.on('takeDamage', ({ dmg, hitId } = {}) => {
+    if (!myRoomId) return;
+    const room = getRoom(myRoomId);
+    if (room.status !== 'playing' || !room.fighters[socket.id]) return;
+    
+    const id = typeof hitId === 'string' ? hitId.slice(0, 80) : `${socket.id}:${Date.now()}:${Math.random()}`;
+    if (room.hitIds.has(id)) return;
+    room.hitIds.add(id);
+    
+    const me = room.fighters[socket.id];
+    const safeDmg = clampNum(dmg, 1, 120, 1);
+    me.hp = Math.max(0, me.hp - safeDmg);
+    
+    io.to(myRoomId).emit('hpUpdate', { id: socket.id, hp: me.hp, maxHp: me.maxHp, dmg: safeDmg });
+    
+    if (me.hp <= 0) {
+      const winnerId = room.fighterIds.find(x => x !== socket.id);
+      handleGameOver(room, winnerId);
+    }
+  });
+
   socket.on('hitOpponent', ({ dmg, hitId } = {}) => {
-    if (game.status !== 'playing' || !game.fighters[socket.id]) return;
+    if (!myRoomId) return;
+    const room = getRoom(myRoomId);
+    if (room.status !== 'playing' || !room.fighters[socket.id]) return;
+    
     const id = typeof hitId === 'string' ? hitId.slice(0, 80) : `${socket.id}:hit:${Date.now()}:${Math.random()}`;
-    if (game.hitIds.has(id)) return;
-    game.hitIds.add(id);
-    const opId = game.fighterIds.find(x => x !== socket.id);
-    if (!opId || !game.fighters[opId]) return;
-    const opponent = game.fighters[opId];
+    if (room.hitIds.has(id)) return;
+    room.hitIds.add(id);
+    
+    const opId = room.fighterIds.find(x => x !== socket.id);
+    if (!opId || !room.fighters[opId]) return;
+    
+    const opponent = room.fighters[opId];
     const safeDmg = clampNum(dmg, 1, 120, 1);
     opponent.hp = Math.max(0, opponent.hp - safeDmg);
-    io.emit('hpUpdate', { id: opId, hp: opponent.hp, maxHp: opponent.maxHp });
+    
+    io.to(myRoomId).emit('hpUpdate', { id: opId, hp: opponent.hp, maxHp: opponent.maxHp, dmg: safeDmg });
+    
     if (opponent.hp <= 0) {
-      handleGameOver(socket.id);
+      handleGameOver(room, socket.id);
     }
   });
 
   socket.on('disconnect', () => {
-    delete lobby.players[socket.id];
-    if (game.fighters[socket.id] && game.status === 'playing') {
-      const winnerId = game.fighterIds.find(x => x !== socket.id);
-      handleGameOver(winnerId);
+    if (!myRoomId) return;
+    const room = getRoom(myRoomId);
+    delete room.players[socket.id];
+    
+    if (room.fighters[socket.id] && room.status === 'playing') {
+      const winnerId = room.fighterIds.find(x => x !== socket.id);
+      handleGameOver(room, winnerId);
       return;
     }
-    game.spectators = game.spectators.filter(x => x !== socket.id);
-    io.emit('lobbyUpdate', pubLobby());
+    room.spectators = room.spectators.filter(x => x !== socket.id);
+    io.to(myRoomId).emit('lobbyUpdate', pubLobby(room));
+    
+    // Optional: Clean up empty rooms after 5 minutes
+    if (Object.keys(room.players).length === 0 && !room.timerInt) {
+      setTimeout(() => { if (Object.keys(room.players).length === 0) delete rooms[myRoomId]; }, 300000);
+    }
   });
 });
 

@@ -32,32 +32,58 @@ document.getElementById('btnJoin').addEventListener('click', function () {
   sfx.init();
   sfx.playClick();
   var name = document.getElementById('inputName').value.trim();
+  var room = document.getElementById('inputRoom') ? document.getElementById('inputRoom').value.trim() : 'PUBLIC';
   if (!name) { document.getElementById('loginErr').innerText = 'Enter a name.'; return; }
+  if (document.getElementById('inputRoom') && !room) { document.getElementById('loginErr').innerText = 'Enter a room code.'; return; }
+  
+  var uid = localStorage.getItem('asura_uid');
+  if (!uid) { uid = 'u_' + Date.now() + Math.random().toString(36).substring(2); localStorage.setItem('asura_uid', uid); }
+
   var btn = document.getElementById('btnJoin');
   btn.disabled = true; btn.innerText = 'Joining...';
-  socket.emit('joinLobby', { username: name }, function (res) {
+  socket.emit('joinLobby', { username: name, roomId: room, userId: uid }, function (res) {
     btn.disabled = false; btn.innerText = 'Join Game';
     if (!res.ok) { document.getElementById('loginErr').innerText = res.msg; return; }
     myNum = res.num;
-    document.getElementById('youBadge').innerText = 'You #' + myNum;
+    document.getElementById('youBadge').innerText = 'You #' + myNum + (res.wins > 0 ? ' (🏆 ' + res.wins + ')' : '');
     sfx.playJoin();
     sfx.playLobbyBgm();
     showLobby();
   });
 });
 document.getElementById('inputName').addEventListener('keydown', function (e) { if (e.key === 'Enter') document.getElementById('btnJoin').click(); });
+if (document.getElementById('inputRoom')) document.getElementById('inputRoom').addEventListener('keydown', function (e) { if (e.key === 'Enter') document.getElementById('btnJoin').click(); });
 
 /* ═══ LOBBY ═══ */
 socket.on('lobbyUpdate', function (d) {
   document.getElementById('lobbyN').innerText = d.count;
   var ul = document.getElementById('pList'); ul.innerHTML = '';
+  var leaderUl = document.getElementById('leaderboardList');
+  if (leaderUl) leaderUl.innerHTML = '';
+  
+  // Sort for leaderboard
+  var sortedPlayers = d.players.slice().sort(function(a, b) { return b.wins - a.wins; });
+  
   d.players.forEach(function (p) {
+    var winStr = p.wins > 0 ? ' <span class="win-pill">🏆 ' + p.wins + ' Wins</span>' : '';
+    var youStr = p.id === socket.id ? ' <span class="you-badge sm">YOU</span>' : '';
     var li = document.createElement('li'); li.className = 'p-item';
-    li.innerHTML = '<span class="pn">#' + p.num + '</span> <span class="pnm">' + p.username + '</span>' +
-      (p.id === socket.id ? ' <span class="you-badge sm">YOU</span>' : '');
+    li.innerHTML = '<span class="pn">#' + p.num + '</span> <span class="pnm">' + p.username + '</span>' + winStr + youStr;
     ul.appendChild(li);
   });
-  document.getElementById('btnForce').style.display = d.count >= 2 ? 'block' : 'none';
+  
+  if (leaderUl) {
+    sortedPlayers.forEach(function(p, i) {
+      if (p.wins > 0) {
+        var li = document.createElement('li'); li.className = 'p-item';
+        li.innerHTML = '<span class="pn">#' + (i+1) + '</span> <span class="pnm">' + p.username + '</span> <span class="win-pill">🏆 ' + p.wins + '</span>';
+        leaderUl.appendChild(li);
+      }
+    });
+  }
+
+  var btnForce = document.getElementById('btnForce');
+  if (btnForce) btnForce.style.display = d.count >= 2 ? 'block' : 'none';
 });
 
 socket.on('timerTick', function (s) {
@@ -73,6 +99,34 @@ socket.on('lobbyMsg', function (msg) {
 });
 
 document.getElementById('btnForce').addEventListener('click', function () { sfx.playClick(); socket.emit('forceStart'); });
+
+var btnLeader = document.getElementById('btnLeaderboardToggle');
+var modLeader = document.getElementById('modalLeaderboard');
+var btnClsLeader = document.getElementById('btnCloseLeaderboard');
+if (btnLeader && modLeader && btnClsLeader) {
+  btnLeader.addEventListener('click', function() { sfx.playClick(); modLeader.classList.remove('hidden'); });
+  btnClsLeader.addEventListener('click', function() { sfx.playClick(); modLeader.classList.add('hidden'); });
+}
+
+/* ═══ EMOTES ═══ */
+document.querySelectorAll('.emote-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    socket.emit('emote', this.dataset.emote);
+    sfx.playClick();
+  });
+});
+
+socket.on('showEmote', function(data) {
+  var battleDiv = document.getElementById('screenBattle');
+  if (battleDiv.style.display === 'none') return;
+  var el = document.createElement('div');
+  el.className = 'floating-emote';
+  el.innerText = data.emoji + ' ' + data.username;
+  el.style.left = (20 + Math.random() * 60) + 'vw';
+  el.style.bottom = (20 + Math.random() * 40) + 'vh';
+  battleDiv.appendChild(el);
+  setTimeout(function() { el.remove(); }, 2000);
+});
 
 /* ═══ GAME START ═══ */
 var vsPhase = false;
@@ -255,10 +309,10 @@ var opHp = 300, opMaxHp = 300;
 var myDmg = 20;
 
 var projectiles = [];
-var lastT = 0;
 var gameRunning = false;
 var loopRafId = null;
 var shotSeq = 0;
+var floatingTexts = [];
 
 /* ─── AVATAR SIZES ─── */
 var AVATAR_SCALE = 0.10; /* 1 unit out of 10 = 10% of canvas height */
@@ -585,6 +639,7 @@ function setupBattle() {
   myHp = myFighter.hp || 100; myMaxHp = myFighter.maxHp || 100;
   opHp = opFighter.hp || 100; opMaxHp = opFighter.maxHp || 100;
   projectiles = [];
+  floatingTexts = [];
   shotSeq = 0;
   gameRunning = true;
   lastT = performance.now();
@@ -715,13 +770,32 @@ socket.on('specFire', function (data) {
 
 socket.on('hpUpdate', function (data) {
   if (!gameData) return;
+  var isMe = false, isTop = false;
   if (amFighter) {
-    if (data.id === socket.id) { myHp = data.hp; myMaxHp = data.maxHp || myMaxHp; }
-    else { opHp = data.hp; opMaxHp = data.maxHp || opMaxHp; }
+    if (data.id === socket.id) { myHp = data.hp; myMaxHp = data.maxHp || myMaxHp; isMe = true; }
+    else { opHp = data.hp; opMaxHp = data.maxHp || opMaxHp; isTop = true; }
   } else {
-    if (data.id === gameData.fighterIds[0]) { myHp = data.hp; myMaxHp = data.maxHp || myMaxHp; }
-    else { opHp = data.hp; opMaxHp = data.maxHp || opMaxHp; }
+    if (data.id === gameData.fighterIds[0]) { myHp = data.hp; myMaxHp = data.maxHp || myMaxHp; isMe = true; }
+    else { opHp = data.hp; opMaxHp = data.maxHp || opMaxHp; isTop = true; }
   }
+  
+  if (data.dmg) {
+    floatingTexts.push({
+      txt: '-' + data.dmg,
+      x: cv.width / 2 + (Math.random() * 40 - 20) * dpr,
+      y: (isTop ? cv.height * HOLE_TOP_FRAC : cv.height * HOLE_BOTTOM_FRAC) + (Math.random() * 20 - 10) * dpr,
+      alpha: 1.0,
+      color: '#ef4444'
+    });
+    // Screen shake
+    var arenaOuter = document.querySelector('.arena-outer');
+    if (arenaOuter) {
+      arenaOuter.classList.remove('shaking');
+      void arenaOuter.offsetWidth; // trigger reflow
+      arenaOuter.classList.add('shaking');
+    }
+  }
+  
   updateHpBars();
 });
 
@@ -773,6 +847,9 @@ function loop(now) {
   }
 
   var w = cv.width, h = cv.height;
+
+  /* Screen resize dynamically per frame to avoid blur */
+  resize();
 
   /* Collisions */
   resolveCollisions();
@@ -830,10 +907,10 @@ function loop(now) {
   /* ═══ DRAW ═══ */
   ctx.clearRect(0, 0, w, h);
 
-  /* Background gradient */
+  /* Draw transparent mystical gradient to lightly tint the underlying CSS environment image */
   var grd = ctx.createLinearGradient(0, 0, 0, h);
-  grd.addColorStop(0, 'rgba(60, 30, 90, 0.5)');
-  grd.addColorStop(0.5, 'rgba(30, 15, 50, 0.25)');
+  grd.addColorStop(0, 'rgba(60, 30, 90, 0.25)');
+  grd.addColorStop(0.5, 'rgba(30, 15, 50, 0.15)');
   grd.addColorStop(1, 'rgba(20, 40, 35, 0.35)');
   ctx.fillStyle = grd;
   ctx.fillRect(0, 0, w, h);
@@ -942,6 +1019,20 @@ function loop(now) {
     ctx.fillStyle = 'rgba(0,0,0,0.35)';
     ctx.beginPath(); ctx.arc(botXs[t], botHoleY, 5 * dpr, 0, Math.PI * 2); ctx.fill();
     ctx.beginPath(); ctx.arc(botXs[t], botHoleY, 6 * dpr, 0, Math.PI * 2); ctx.stroke();
+  }
+
+  /* ─── Floating Damage Texts ─── */
+  for (var f = floatingTexts.length - 1; f >= 0; f--) {
+    var ft = floatingTexts[f];
+    ft.y -= 100 * dt * dpr;
+    ft.alpha -= 0.8 * dt;
+    if (ft.alpha <= 0) { floatingTexts.splice(f, 1); continue; }
+    ctx.fillStyle = 'rgba(239, 68, 68, ' + ft.alpha + ')';
+    ctx.font = 'bold ' + 24 * dpr + 'px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.shadowColor = '#000'; ctx.shadowBlur = 4;
+    ctx.fillText(ft.txt, ft.x, ft.y);
+    ctx.shadowBlur = 0; /* reset */
   }
 
   /* ─── End state overlay ─── */

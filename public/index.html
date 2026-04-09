@@ -21,6 +21,7 @@
       <p class="ov-sub">AI Developer India Family Game</p>
       <div class="ov-card">
         <input type="text" id="inputName" placeholder="Your name..." maxlength="12" autocomplete="off"/>
+        <input type="text" id="inputRoom" placeholder="Room Code (e.g. FAMILY)" maxlength="8" autocomplete="off" style="margin-top: 0.5rem; text-transform: uppercase;"/>
         <button class="gold-btn" id="btnJoin">Join Game</button>
       </div>
       <p id="loginErr" class="err"></p>
@@ -41,6 +42,7 @@
         <ul id="pList" class="p-list"></ul>
       </div>
       <button class="gold-btn" id="btnForce" style="display:none">⚡ Start Now!</button>
+      <button class="sec-btn" id="btnLeaderboardToggle" style="margin-top: 0.5rem; width: 100%;">🏆 Show Leaderboard</button>
       <p id="lobbyMsg" class="info"></p>
       
       <!-- Power Moves Guide (Visible to everyone in lobby) -->
@@ -107,6 +109,14 @@
         </div>
       </div>
     </div>
+
+    <!-- Emotes Overlay -->
+    <div class="emotes-panel">
+      <button class="emote-btn" data-emote="😂">😂</button>
+      <button class="emote-btn" data-emote="😡">😡</button>
+      <button class="emote-btn" data-emote="🔥">🔥</button>
+      <button class="emote-btn" data-emote="👏">👏</button>
+    </div>
   </div>
 
   <!-- ═══ GAME OVER MODAL ═══ -->
@@ -122,6 +132,15 @@
     <div class="modal-box">
       <h2>Next Match In</h2>
       <span id="nextTimer" class="big-cd">5</span>
+    </div>
+  </div>
+
+  <!-- ═══ LEADERBOARD ═══ -->
+  <div id="modalLeaderboard" class="modal hidden" style="z-index: 2000;">
+    <div class="modal-box">
+      <h2>🏆 Leaderboard</h2>
+      <ul id="leaderboardList" class="p-list" style="max-height: 50vh; overflow-y: auto;"></ul>
+      <button class="gold-btn" id="btnCloseLeaderboard" style="margin-top: 1rem;">Close</button>
     </div>
   </div>
 
