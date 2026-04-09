@@ -15,8 +15,22 @@ var gameData = null;
 var myFighter = null;
 var opFighter = null;
 
+/* ═══ AUDIO TOGGLE ═══ */
+var $btnAudio = document.getElementById('btnAudioToggle');
+if ($btnAudio) {
+  $btnAudio.dataset.muted = sfx.isMuted;
+  $btnAudio.addEventListener('click', function() {
+    var muted = sfx.toggleMute();
+    this.dataset.muted = muted;
+    sfx.playClick();
+    if (!muted && $lobby.classList.contains('active-overlay')) sfx.playLobbyBgm();
+  });
+}
+
 /* ═══ LOGIN ═══ */
 document.getElementById('btnJoin').addEventListener('click', function () {
+  sfx.init();
+  sfx.playClick();
   var name = document.getElementById('inputName').value.trim();
   if (!name) { document.getElementById('loginErr').innerText = 'Enter a name.'; return; }
   var btn = document.getElementById('btnJoin');
@@ -26,6 +40,8 @@ document.getElementById('btnJoin').addEventListener('click', function () {
     if (!res.ok) { document.getElementById('loginErr').innerText = res.msg; return; }
     myNum = res.num;
     document.getElementById('youBadge').innerText = 'You #' + myNum;
+    sfx.playJoin();
+    sfx.playLobbyBgm();
     showLobby();
   });
 });
@@ -56,7 +72,7 @@ socket.on('lobbyMsg', function (msg) {
   setTimeout(function () { el.innerText = ''; }, 4000);
 });
 
-document.getElementById('btnForce').addEventListener('click', function () { socket.emit('forceStart'); });
+document.getElementById('btnForce').addEventListener('click', function () { sfx.playClick(); socket.emit('forceStart'); });
 
 /* ═══ GAME START ═══ */
 var vsPhase = false;
@@ -90,6 +106,7 @@ socket.on('gameStart', function (data) {
 function startVsIntro() {
   vsPhase = true;
   vsStartTime = performance.now();
+  if (amFighter) sfx.playStomp();
 }
 
 function drawVsScreen(now) {
@@ -183,6 +200,7 @@ function drawVsScreen(now) {
   }
 
   if (elapsed >= VS_DURATION) {
+    if (vsPhase && amFighter) sfx.playGameStart();
     vsPhase = false;
   }
 }
@@ -190,6 +208,10 @@ function drawVsScreen(now) {
 /* ═══ GAME OVER ═══ */
 socket.on('gameOver', function (data) {
   gameData = data;
+  if (amFighter) {
+    if (data.winner && data.winner.id === socket.id) sfx.playVictory();
+    else sfx.playDefeat();
+  }
   var modal = document.getElementById('modalGO');
   document.getElementById('winText').innerText = data.winner ? '🏆 ' + data.winner.username + ' wins!' : 'Draw!';
   modal.classList.remove('hidden');
@@ -198,6 +220,7 @@ socket.on('gameOver', function (data) {
 });
 
 socket.on('nextCountdown', function (s) {
+  if (s > 0) sfx.playCountdownTick();
   var ov = document.getElementById('nextOv');
   ov.classList.remove('hidden');
   document.getElementById('nextTimer').innerText = s;
@@ -234,6 +257,7 @@ var myDmg = 20;
 var projectiles = [];
 var lastT = 0;
 var gameRunning = false;
+var loopRafId = null;
 var shotSeq = 0;
 
 /* ─── AVATAR SIZES ─── */
@@ -416,6 +440,7 @@ function sendPlayerShot(shot) {
 }
 
 function setupBattle() {
+  if (amFighter) sfx.playBattleBgm();
   cv = document.getElementById('cv');
   ctx = cv.getContext('2d');
   resize();
@@ -483,8 +508,10 @@ function setupBattle() {
     comboTimer = null;
 
     if (lanes.length >= 3) {
+      sfx.playPowerMove();
       showPowerEffect(myFighter.char.weaponName + ' POWER MOVE!');
     } else if (lanes.length === 2) {
+      sfx.playDoubleShot();
       showPowerEffect('DOUBLE SHOT!');
     }
 
@@ -517,12 +544,14 @@ function setupBattle() {
       function queueLane(e) {
         if (e) e.preventDefault();
         if (!gameRunning || !amFighter || vsPhase) return;
+        sfx.playClick();
 
         /* Add to combo buffer */
         if (pendingLanes.indexOf(hi) === -1) pendingLanes.push(hi);
 
         /* If only 1 lane so far, fire instantly AND start combo timer */
         if (pendingLanes.length === 1) {
+          sfx.playWeapon((myFighter && myFighter.char && myFighter.char.assetIndex) ? myFighter.char.assetIndex : 1, false);
           /* Fire single shot immediately */
           var singleLanes = uniqueSortedLanes(pendingLanes.slice());
           buildComboShots(singleLanes).forEach(sendPlayerShot);
@@ -561,7 +590,8 @@ function setupBattle() {
   lastT = performance.now();
 
   updateHpBars();
-  requestAnimationFrame(loop);
+  if (loopRafId) cancelAnimationFrame(loopRafId);
+  loopRafId = requestAnimationFrame(loop);
 }
 
 function resize() {
@@ -670,6 +700,7 @@ function spawnEnemyShot(shot, dmg) {
 socket.on('enemyFire', function (data) {
   if (!gameRunning) return;
   spawnEnemyShot(data);
+  if (opFighter && opFighter.char) sfx.playWeapon(opFighter.char.assetIndex || 1, true);
 });
 
 socket.on('specFire', function (data) {
@@ -701,15 +732,17 @@ function resolveCollisions() {
   var dead = [];
   for (var z = 0; z < n; z++) dead[z] = false;
   var rr = 12 * dpr, rr2 = rr * rr;
+  var colSound = false;
   for (var i = 0; i < n; i++) {
     if (dead[i]) continue;
     for (var j = i + 1; j < n; j++) {
       if (dead[j]) continue;
       if (projectiles[i].ally === projectiles[j].ally) continue;
       var dx = projectiles[i].x - projectiles[j].x, dy = projectiles[i].y - projectiles[j].y;
-      if (dx * dx + dy * dy <= rr2) { dead[i] = true; dead[j] = true; }
+      if (dx * dx + dy * dy <= rr2) { dead[i] = true; dead[j] = true; colSound = true; }
     }
   }
+  if (colSound) sfx.playCollision();
   var out = [];
   for (var k = 0; k < n; k++) if (!dead[k]) out.push(projectiles[k]);
   projectiles = out;
@@ -735,7 +768,7 @@ function loop(now) {
   /* VS intro phase — draw VS screen instead of gameplay */
   if (vsPhase) {
     drawVsScreen(now);
-    requestAnimationFrame(loop);
+    loopRafId = requestAnimationFrame(loop);
     return;
   }
 
@@ -765,6 +798,7 @@ function loop(now) {
         projectiles.splice(i, 1);
         /* Actually reduce opponent HP and tell server */
         if (amFighter) {
+          sfx.playHitOpponent();
           opHp = Math.max(0, opHp - p.dmg);
           updateHpBars();
           socket.emit('hitOpponent', { dmg: p.dmg, hitId: p.id });
@@ -778,7 +812,9 @@ function loop(now) {
       if (projectileTouchesAvatar(p, ML)) {
         projectiles.splice(i, 1);
         if (amFighter) {
+          sfx.playTakeDamage();
           myHp = Math.max(0, myHp - p.dmg);
+          if (myHp > 0 && myHp < myMaxHp * 0.25) sfx.playLowHpWarning();
           updateHpBars();
           socket.emit('takeDamage', { dmg: p.dmg, hitId: p.id });
         }
@@ -920,7 +956,7 @@ function loop(now) {
     ctx.fillText('You were defeated', w / 2, h * 0.48);
   }
 
-  requestAnimationFrame(loop);
+  loopRafId = requestAnimationFrame(loop);
 }
 
 /* ═══ CONFETTI ═══ */

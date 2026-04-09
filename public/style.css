@@ -4,9 +4,9 @@
   --blood: #b91c1c; --blood-track: rgba(0, 0, 0, 0.45);
 }
 * { box-sizing: border-box; }
-html { height: 100%; overflow-x: hidden; }
+html { height: 100%; overflow: hidden; }
 body {
-  margin: 0; width: 100%; min-height: 100vh; min-height: 100dvh;
+  margin: 0; width: 100%; height: 100dvh;
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
   background: linear-gradient(165deg, var(--bg1) 0%, var(--bg2) 50%, #1e1033 100%);
   color: #fff;
@@ -14,9 +14,25 @@ body {
     max(0.35rem, env(safe-area-inset-bottom, 0px)) max(0.5rem, env(safe-area-inset-left, 0px));
   display: flex; flex-direction: column; align-items: stretch;
   gap: clamp(0.28rem, 1.5vmin, 0.55rem);
-  touch-action: manipulation; overflow-x: hidden; overflow-y: auto;
+  touch-action: manipulation; overflow: hidden;
   -webkit-tap-highlight-color: transparent;
 }
+
+/* ═══ AUDIO TOGGLE ═══ */
+.audio-toggle {
+  position: absolute; top: clamp(10px, 2vh, 20px); right: clamp(10px, 2vw, 20px);
+  z-index: 999;
+  width: 40px; height: 40px; border-radius: 50%;
+  border: 1px solid rgba(251, 191, 36, 0.5);
+  background: rgba(0,0,0,0.4);
+  color: #fca5a5; font-size: 1.2rem; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+}
+.audio-toggle:hover { background: rgba(245, 158, 11, 0.2); transform: scale(1.1); }
+.audio-toggle[data-muted="true"] { filter: grayscale(1); opacity: 0.7; border-color: rgba(255,255,255,0.2); }
+
 
 /* ═══ OVERLAYS (Login / Lobby) ═══ */
 .overlay {
@@ -99,9 +115,10 @@ body {
 
 /* ═══ BATTLE SCREEN (canvas game) ═══ */
 .battle-screen {
+  flex: 1 1 0; min-height: 0;
   display: flex; flex-direction: column; align-items: stretch;
   gap: clamp(0.28rem, 1.5vmin, 0.55rem);
-  width: 100%; min-height: 100vh;
+  width: 100%; overflow: hidden;
 }
 
 .game-header {
@@ -110,9 +127,9 @@ body {
   gap: 0.12rem; text-align: center; padding-inline: 0.25rem;
 }
 h1 {
-  font-size: clamp(0.58rem, 1.45vmin + 0.32rem, 0.88rem);
+  font-size: clamp(0.7rem, 2vmin + 0.4rem, 1.2rem);
   font-weight: 600; opacity: 0.85; text-align: center; margin: 0;
-  letter-spacing: 0.06em; text-transform: uppercase; line-height: 1.2;
+  letter-spacing: 0.05em; text-transform: uppercase; line-height: 1.2;
 }
 .layout {
   display: flex; flex-direction: column;
@@ -194,9 +211,9 @@ h1 {
 .hole-btn:active { transform: scale(0.96); background: rgba(245, 158, 11, 0.22); }
 .hole-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-.hp-row { display: flex; align-items: center; gap: 0.35rem; font-size: clamp(0.55rem, 2.4vmin, 0.72rem); flex-shrink: 0; }
-.hp-row .label { flex: 0 0 clamp(2.35rem, 18vw, 4.5rem); color: #fcd34d; font-weight: 700; font-size: 0.7rem; }
-.hp-bar { flex: 1; height: clamp(0.45rem, 2vmin, 0.62rem); background: var(--blood-track); border-radius: 999px; overflow: hidden; border: 1px solid rgba(255,255,255,0.12); }
+.hp-row { display: flex; align-items: center; gap: 0.35rem; font-size: clamp(0.65rem, 2.8vmin, 0.85rem); flex-shrink: 0; }
+.hp-row .label { flex: 0 0 clamp(3.0rem, 20vw, 5.0rem); color: #fcd34d; font-weight: 700; font-size: 0.75rem; text-shadow: 0 0 4px rgba(0,0,0,0.8); }
+.hp-bar { flex: 1; height: clamp(0.55rem, 2.5vmin, 0.75rem); background: var(--blood-track); border-radius: 999px; overflow: hidden; border: 1px solid rgba(255,255,255,0.12); }
 .hp-fill { height: 100%; width: 100%; background: linear-gradient(90deg, #7f1d1d, var(--blood)); transform-origin: left center; transition: transform 0.12s ease-out; }
 .hp-fill.player { background: linear-gradient(90deg, #14532d, #22c55e); }
 
@@ -219,7 +236,7 @@ h1 {
 canvas { display: block; width: 100%; height: 100%; }
 
 .asura-name {
-  font-size: clamp(0.68rem, 2.8vmin, 0.92rem); text-align: center;
+  font-size: clamp(0.75rem, 3vmin, 1.05rem); text-align: center;
   color: #fde68a; opacity: 0.95; margin: 0; font-weight: 600; line-height: 1.2;
 }
 
@@ -255,8 +272,8 @@ canvas { display: block; width: 100%; height: 100%; }
 }
 @media (max-height: 640px) {
   .arena { transform: rotateX(4deg); min-height: clamp(8.5rem, 28svmin, 11rem); }
-  h1 { font-size: clamp(0.55rem, 1.4vmin, 0.68rem); }
-  .hole-btn { min-height: max(44px, 2.4rem); }
+  h1 { font-size: clamp(0.65rem, 1.8vmin, 0.8rem); }
+  .hole-btn { min-height: max(40px, 2.2rem); }
 }
 
 /* ═══ POWER MOVES INFO PANEL ═══ */
