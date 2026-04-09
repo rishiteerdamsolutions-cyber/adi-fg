@@ -254,10 +254,7 @@ h1 {
 }
 .arena {
   position: relative;
-  background: 
-    linear-gradient(180deg, rgba(88, 28, 135, 0.4) 0%, rgba(30, 10, 50, 0.9) 100%),
-    repeating-linear-gradient(0deg, rgba(251, 191, 36, 0.05) 0px, rgba(251, 191, 36, 0.05) 2px, transparent 2px, transparent 80px),
-    #170b24;
+  background: url('gameboardbg.png') no-repeat center bottom / cover;
   border-radius: 8px; overflow: hidden;
   box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.8), 0 10px 30px rgba(0,0,0,0.5);
   border: 2px solid rgba(251, 191, 36, 0.3);
