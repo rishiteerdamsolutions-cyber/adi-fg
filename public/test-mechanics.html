@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>Skill Mechanic Sandbox</title>
+  <style>
+    body { background: #0a0a0a; color: white; font-family: sans-serif; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+    canvas { background: #1a1a1a; border: 2px solid #555; border-radius: 8px; max-width: 100%; box-shadow: 0 4px 20px rgba(0,0,0,0.8); }
+    .controls { display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap; justify-content: center; max-width: 400px; }
+    button { background: #3b82f6; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+    button:hover { background: #2563eb; }
+    .danger { background: #ef4444; }
+    .danger:hover { background: #dc2626; }
+    .info { font-size: 0.9em; color: #aaa; text-align: center; margin-top: 15px; max-width: 360px; line-height: 1.5; }
+    .lane-btns { display: flex; margin-top: 15px; gap: 5px; }
+    .lane-btns button { background: #4b5563; padding: 15px; width: 60px; font-size: 1.2em; }
+    .lane-btns button:active { background: #fbbf24; color: black; }
+    .hit-number { color: #ef4444; font-weight: bold; position: absolute; text-shadow: 2px 2px 0 #000; z-index: 10; animation: floatUp 1s ease-out forwards; pointer-events: none; }
+    @keyframes floatUp { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-30px); opacity: 0; } }
+  </style>
+</head>
+<body>
+
+  <h2>Secret Skills Sandbox</h2>
+  
+  <div style="position: relative;">
+    <canvas id="cv" width="360" height="480"></canvas>
+    <!-- HP UI -->
+    <div style="position: absolute; top: -10px; left: 10px; right: 10px; display: flex; justify-content: space-between;">
+      <span style="color:red; font-weight:bold" id="opHp">Boss HP: 100%</span>
+    </div>
+  </div>
+
+  <div class="lane-btns" id="laneContainer">
+    <button data-lane="0">1</button>
+    <button data-lane="1">2</button>
+    <button data-lane="2">3</button>
+    <button data-lane="3">4</button>
+    <button data-lane="4">5</button>
+  </div>
+
+  <div class="controls">
+    <button onclick="triggerSmoke()">Trigger Smoke Stealth</button>
+    <button onclick="testPattern()">Auto-Test 1-3-5 Clone Rush</button>
+    <button class="danger" onclick="resetSandBox()">Reset</button>
+  </div>
+
+  <p class="info">
+    <b>Clone Rush:</b> Tap lanes 1, 3, 5, 1, 3, 5, 1, 3, 5 to trigger an auto-rush animation that takes 20% max HP. <br><br>
+    <b>Smoke Stealth:</b> Generates an opaque smoke cover over your side of the screen using per-frame particle rendering.
+  </p>
+
+  <script>
+    var cv = document.getElementById('cv');
+    var ctx = cv.getContext('2d');
+    
+    var w = cv.width; var h = cv.height;
+    
+    // Game State
+    var opHp = 300, maxHp = 300;
+    var lanes = [w*0.1, w*0.3, w*0.5, w*0.7, w*0.9];
+    
+    // Pattern Buffer
+    var clickBuffer = [];
+    var patternTarget = [0, 2, 4, 0, 2, 4, 0, 2, 4]; // 1-3-5 (index 0,2,4) x3
+    
+    // Animations
+    var clones = [];
+    var smokeParticles = [];
+    var smokeActive = false;
+    var smokeAlpha = 0;
+
+    var lastRender = performance.now();
+
+    function loop(now) {
+      var dt = (now - lastRender) / 1000;
+      lastRender = now;
+      ctx.clearRect(0,0,w,h);
+
+      // Draw Lanes
+      ctx.strokeStyle = '#333';
+      for(var i=0; i<5; i++) {
+        ctx.beginPath(); ctx.moveTo(lanes[i], 0); ctx.lineTo(lanes[i], h); ctx.stroke();
+      }
+
+      // Draw Opponent
+      ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.arc(w/2, 40, 20, 0, Math.PI*2); ctx.fill();
+
+      // Draw You
+      ctx.fillStyle = '#3b82f6'; ctx.beginPath(); ctx.arc(w/2, h - 40, 20, 0, Math.PI*2); ctx.fill();
+
+      /* ─── CLONE RUSH ANIMATION ─── */
+      for(var i = clones.length - 1; i >= 0; i--) {
+        var c = clones[i];
+        c.y -= c.vy * dt;
+        
+        ctx.fillStyle = c.color;
+        ctx.globalAlpha = 0.6; // ghost effect
+        ctx.beginPath(); ctx.arc(c.x, c.y, 20, 0, Math.PI*2); ctx.fill();
+        ctx.globalAlpha = 1.0;
+        
+        if (c.y < 40) {
+          // Impact!
+          clones.splice(i, 1);
+          doDamage();
+        }
+      }
+
+      /* ─── SMOKE STEALTH RENDER ─── */
+      if (smokeActive) {
+        smokeAlpha = Math.min(1, smokeAlpha + dt * 2);
+        if (smokeParticles.length < 80) {
+          smokeParticles.push({
+            x: Math.random() * w, y: h - (Math.random() * 120),
+            r: 20 + Math.random() * 40,
+            vx: (Math.random() - 0.5) * 20, vy: (Math.random() - 0.5) * 10
+          });
+        }
+      } else {
+        smokeAlpha = Math.max(0, smokeAlpha - dt * 2);
+      }
+
+      if (smokeAlpha > 0) {
+        ctx.globalAlpha = smokeAlpha;
+        for(var p of smokeParticles) {
+          p.x += p.vx * dt; p.y += p.vy * dt;
+          if(p.x < -40) p.x = w+40; if(p.x > w+40) p.x = -40;
+          var radGrad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r);
+          radGrad.addColorStop(0, 'rgba(100,105,110,0.8)');
+          radGrad.addColorStop(1, 'rgba(80,85,90,0)');
+          ctx.fillStyle = radGrad;
+          ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
+        }
+        ctx.globalAlpha = 1.0;
+      }
+
+      document.getElementById('opHp').innerText = 'Boss HP: ' + Math.max(0, Math.round((opHp/maxHp)*100)) + '%';
+
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+
+    /* ─── INTERACTIONS ─── */
+    function checkPattern(laneIndex) {
+      clickBuffer.push(laneIndex);
+      if (clickBuffer.length > patternTarget.length) clickBuffer.shift();
+
+      if (clickBuffer.length === patternTarget.length) {
+        var match = true;
+        for(var i=0; i<patternTarget.length; i++) {
+          if (clickBuffer[i] !== patternTarget[i]) { match = false; break; }
+        }
+        if (match) {
+          triggerCloneRush();
+          clickBuffer = []; // reset
+        }
+      }
+    }
+
+    function triggerCloneRush() {
+      // Spawn 3 clones
+      clones.push({ x: lanes[0], y: h-40, vy: 500, color: '#fbbf24' });
+      clones.push({ x: lanes[2], y: h-40, vy: 550, color: '#fbbf24' });
+      clones.push({ x: lanes[4], y: h-40, vy: 450, color: '#fbbf24' });
+    }
+
+    function doDamage() {
+      // Logic: loses half of 20% of max blood meaning 10% each hit? OR "lose 20% of the blood". 
+      // The instructions said "20% max hp damage". So 60 dmg per clone total? No, maybe 20% per *rush trigger*.
+      // We have 3 clones, so we'll do 20% / 3 per clone impact.
+      var dmg = maxHp * 0.20 / 3;
+      opHp -= dmg;
+      if (opHp <= (maxHp * 0.20)) {
+        // If less than 20% is there, opposite is lost the game! We just kill them.
+        opHp = 0; 
+      }
+      spawnHitText(dmg * 3); // Just show the whole chunk visually
+    }
+
+    function spawnHitText(val) {
+      if(val < 1) return; // don't spam 3 times
+      var el = document.createElement('div');
+      el.className = 'hit-number';
+      el.innerText = '-20% HP!';
+      el.style.left = '45%';
+      el.style.top = '10%';
+      document.body.appendChild(el);
+      setTimeout(()=>el.remove(), 1000);
+    }
+
+    function triggerSmoke() {
+      smokeActive = !smokeActive; 
+    }
+
+    function testPattern() {
+      triggerCloneRush();
+    }
+
+    function resetSandBox() {
+      opHp = maxHp;
+      clones = [];
+      smokeActive = false;
+      smokeAlpha = 0;
+      smokeParticles = [];
+      clickBuffer = [];
+    }
+
+    // Bind UI buttons
+    document.getElementById('laneContainer').addEventListener('click', function(e) {
+      if(e.target.tagName !== 'BUTTON') return;
+      var lane = parseInt(e.target.dataset.lane, 10);
+      checkPattern(lane);
+    });
+  </script>
+</body>
+</html>
