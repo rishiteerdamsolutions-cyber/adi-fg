@@ -218,9 +218,7 @@ io.on('connection', (socket) => {
     if (!myRoomId) return;
     const room = getRoom(myRoomId);
     if (room.status !== 'playing' || !room.fighters[socket.id]) return;
-    const opId = room.fighterIds.find(x => x !== socket.id);
-    if (opId) io.to(opId).emit('enemySmoke');
-    room.spectators.forEach(sid => io.to(sid).emit('enemySmoke'));
+    io.to(myRoomId).emit('smokeEffect', { sourceId: socket.id });
   });
 
   socket.on('triggerCloneRush', () => {
@@ -231,24 +229,23 @@ io.on('connection', (socket) => {
     // Broadcast effect
     io.to(myRoomId).emit('cloneRushEffect', { sourceId: socket.id });
 
-    // Luck calculation (40% hit chance to deal 20% max hp)
+    // Guarantee 20% max hp hit completely
     setTimeout(() => {
       if (room.status !== 'playing') return;
-      if (Math.random() <= 0.40) {
-        const opId = room.fighterIds.find(x => x !== socket.id);
-        if (!opId || !room.fighters[opId]) return;
-        const opponent = room.fighters[opId];
-        const rawDmg = Math.round(opponent.maxHp * 0.20);
-        
-        const id = `${socket.id}:clone:${Date.now()}`;
-        if (room.hitIds.has(id)) return;
-        room.hitIds.add(id);
+      const opId = room.fighterIds.find(x => x !== socket.id);
+      if (!opId || !room.fighters[opId]) return;
+      
+      const opponent = room.fighters[opId];
+      const rawDmg = Math.round(opponent.maxHp * 0.20);
+      
+      const id = `${socket.id}:clone:${Date.now()}`;
+      if (room.hitIds.has(id)) return;
+      room.hitIds.add(id);
 
-        opponent.hp = Math.max(0, opponent.hp - rawDmg);
-        io.to(myRoomId).emit('hpUpdate', { id: opId, hp: opponent.hp, maxHp: opponent.maxHp, dmg: rawDmg });
-        
-        if (opponent.hp <= 0) handleGameOver(room, socket.id);
-      }
+      opponent.hp = Math.max(0, opponent.hp - rawDmg);
+      io.to(myRoomId).emit('hpUpdate', { id: opId, hp: opponent.hp, maxHp: opponent.maxHp, dmg: rawDmg });
+      
+      if (opponent.hp <= 0) handleGameOver(room, socket.id);
     }, 1200); // 1.2s flight time match
   });
 

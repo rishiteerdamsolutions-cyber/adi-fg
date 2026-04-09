@@ -320,9 +320,7 @@ var floatingTexts = [];
 
 /* Secret Mechanic Vars */
 var clickBuffer = [];
-var smokeParticles = [];
-var smokeActive = false;
-var smokeAlpha = 0;
+var activeSmokes = [];
 var cloneRushes = [];
 
 /* ─── AVATAR SIZES ─── */
@@ -851,10 +849,12 @@ socket.on('hpUpdate', function (data) {
 });
 
 /* ─── Secret Events ─── */
-socket.on('enemySmoke', function() {
+socket.on('smokeEffect', function(data) {
   if (!gameRunning) return;
-  smokeActive = true;
-  setTimeout(function() { smokeActive = false; }, 30000); // Clear after 30s
+  var isMe = amFighter && (socket.id === data.sourceId);
+  var smokeObj = { isPlayerSource: isMe, particles: [], alpha: 0, active: true };
+  activeSmokes.push(smokeObj);
+  setTimeout(function() { smokeObj.active = false; }, 30000); // Clear after 30s
 });
 
 socket.on('cloneRushEffect', function(data) {
@@ -862,12 +862,19 @@ socket.on('cloneRushEffect', function(data) {
   var isPlayerSource = amFighter && (socket.id === data.sourceId);
   var rushStartY = isPlayerSource ? cv.height - 40 : 40;
   var targetY = isPlayerSource ? 40 : cv.height - 40;
-  var col = isPlayerSource ? '#fcd34d' : '#ef4444'; // Gold for you, Red for enemy
+  
+  var img = new Image();
+  if (isPlayerSource) {
+     if (myFighter && myFighter.char) img.src = myFighter.char.head;
+  } else {
+     if (opFighter && opFighter.char) img.src = opFighter.char.head;
+     else if (myFighter) img.src = myFighter.char.head; // fallback spectator
+  }
 
   var lxs = holeXs(cv.width, HOLE_COUNT);
   for(var i of [0, 2, 4]) {
     cloneRushes.push({
-      start: lxs[i], x: lxs[i], y: rushStartY, targetY: targetY, color: col, vy: 400 + Math.random()*200, isUp: isPlayerSource
+      start: lxs[i], x: lxs[i], y: rushStartY, targetY: targetY, img: img, vy: 400 + Math.random()*200, isUp: isPlayerSource
     });
   }
 });
@@ -1118,11 +1125,10 @@ function loop(now) {
     // Zig-zag weave
     c.x = c.start + Math.sin(c.y / 30) * 50 * dpr;
     
-    ctx.fillStyle = c.color;
     ctx.globalAlpha = 0.6;
-    ctx.beginPath();
-    ctx.arc(c.x, c.y, 20 * dpr, 0, Math.PI * 2);
-    ctx.fill();
+    if (c.img && c.img.complete) {
+      ctx.drawImage(c.img, c.x - 20*dpr, c.y - 20*dpr, 40*dpr, 40*dpr);
+    }
     ctx.globalAlpha = 1.0;
     
     if ((c.isUp && c.y <= c.targetY) || (!c.isUp && c.y >= c.targetY)) {
@@ -1132,32 +1138,40 @@ function loop(now) {
   }
 
   /* ─── SMOKE STEALTH RENDER ─── */
-  if (smokeActive) {
-    smokeAlpha = Math.min(1, smokeAlpha + (dt||0.016) * 2);
-    if (smokeParticles.length < 250) {
-      smokeParticles.push({
-        x: Math.random() * w, y: h - (Math.random() * (h * 0.25)),
-        r: (20 + Math.random() * 40) * dpr,
-        vx: (Math.random() - 0.5) * 20 * dpr, vy: (Math.random() - 0.5) * 10 * dpr
-      });
+  for (var i = activeSmokes.length - 1; i >= 0; i--) {
+    var smk = activeSmokes[i];
+    if (smk.active) {
+      smk.alpha = Math.min(1, smk.alpha + (dt||0.016) * 2);
+      if (smk.particles.length < 250) {
+        // If my side, bottom 25%. If opponent, top 25%.
+        var yZone = smk.isPlayerSource ? (h - Math.random()*(h*0.25)) : (Math.random()*(h*0.25));
+        
+        smk.particles.push({
+          x: Math.random() * w, y: yZone,
+          r: (20 + Math.random() * 40) * dpr,
+          vx: (Math.random() - 0.5) * 20 * dpr, vy: (Math.random() - 0.5) * 10 * dpr
+        });
+      }
+    } else {
+      smk.alpha = Math.max(0, smk.alpha - (dt||0.016) * 2);
     }
-  } else {
-    smokeAlpha = Math.max(0, smokeAlpha - (dt||0.016) * 2);
-  }
-
-  if (smokeAlpha > 0) {
-    ctx.globalAlpha = smokeAlpha;
-    for (var p = 0; p < smokeParticles.length; p++) {
-      var sp = smokeParticles[p];
-      sp.x += sp.vx * (dt||0.016); sp.y += sp.vy * (dt||0.016);
-      if(sp.x < -100) sp.x = w+100; if(sp.x > w+100) sp.x = -100;
-      var radGrad = ctx.createRadialGradient(sp.x, sp.y, 0, sp.x, sp.y, sp.r);
-      radGrad.addColorStop(0, 'rgba(100,105,110,0.95)');
-      radGrad.addColorStop(1, 'rgba(80,85,90,0)');
-      ctx.fillStyle = radGrad;
-      ctx.beginPath(); ctx.arc(sp.x, sp.y, sp.r, 0, Math.PI*2); ctx.fill();
+    
+    if (smk.alpha > 0) {
+      ctx.globalAlpha = smk.alpha;
+      for (var p = 0; p < smk.particles.length; p++) {
+        var sp = smk.particles[p];
+        sp.x += sp.vx * (dt||0.016); sp.y += sp.vy * (dt||0.016);
+        if(sp.x < -100) sp.x = w+100; if(sp.x > w+100) sp.x = -100;
+        var radGrad = ctx.createRadialGradient(sp.x, sp.y, 0, sp.x, sp.y, sp.r);
+        radGrad.addColorStop(0, 'rgba(100,105,110,0.95)');
+        radGrad.addColorStop(1, 'rgba(80,85,90,0)');
+        ctx.fillStyle = radGrad;
+        ctx.beginPath(); ctx.arc(sp.x, sp.y, sp.r, 0, Math.PI*2); ctx.fill();
+      }
+      ctx.globalAlpha = 1.0;
+    } else {
+      activeSmokes.splice(i, 1);
     }
-    ctx.globalAlpha = 1.0;
   }
 
   /* ─── End state overlay ─── */
