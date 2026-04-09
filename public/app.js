@@ -144,6 +144,9 @@ socket.on('gameStart', function (data) {
   var banner = document.getElementById('specBanner');
   banner.classList.toggle('hidden', amFighter);
 
+  var emotesPanel = document.querySelector('.emotes-panel');
+  if (emotesPanel) emotesPanel.style.display = amFighter ? 'none' : 'flex';
+
   if (amFighter) {
     myFighter = data.fighters[socket.id];
     var opId = data.fighterIds.find(function (x) { return x !== socket.id; });
@@ -525,7 +528,7 @@ function setupBattle() {
 
   /* Weapon row (visual display only — single weapon) */
   var wRow = document.getElementById('weaponRow');
-  wRow.innerHTML = '<h2 class="power-highlight" style="font-size: 0.8rem; margin:0 0 0.2rem;">YOUR WEAPON</h2>';
+  wRow.innerHTML = '<h2 class="power-highlight" style="font-size: 1.1rem; text-shadow: 2px 2px 4px #000; margin:0 0 0.4rem;">YOUR WEAPON</h2>';
   var wBtn = document.createElement('button');
   wBtn.type = 'button';
   wBtn.className = 'weapon-btn active';
