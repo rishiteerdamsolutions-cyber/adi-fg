@@ -154,9 +154,26 @@ h1 {
   background: linear-gradient(180deg, rgba(10, 6, 22, 0.35) 0%, transparent 100%);
 }
 
+.player-deck {
+  display: flex; align-items: stretch; gap: 0.5rem;
+  padding: 0.5rem; background: rgba(0, 0, 0, 0.45);
+  border-radius: clamp(0.45rem, 1.8vmin, 0.75rem);
+  flex-shrink: 0; min-height: clamp(3.5rem, 12svmin, 4.5rem);
+}
+
+.floating-weapon-label {
+  position: absolute; top: -14px; left: 10px;
+  font-size: 0.8rem; text-shadow: 2px 2px 4px #000, 0 0 10px #000;
+  margin: 0; padding: 2px 8px; background: rgba(0,0,0,0.6);
+  border-radius: 8px; z-index: 10; font-weight: 900;
+}
+
 .weapons {
-  flex: 0 0 auto; display: flex; align-items: center;
-  overflow-x: auto; gap: 0.35rem; width: 100%; padding-bottom: 0.05rem;
+  flex: 0 0 clamp(3.0rem, 12vw, 4.0rem);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: clamp(0.35rem, 1.5vmin, 0.5rem);
+  padding: 0.2rem; cursor: pointer;
 }
 .weapons h2 {
   font-size: clamp(0.55rem, 2vmin, 0.68rem); margin: 0 0.12rem 0 0;
@@ -213,6 +230,15 @@ h1 {
 }
 .hole-btn:active { transform: scale(0.96); background: rgba(245, 158, 11, 0.22); }
 .hole-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.smoke-btn {
+  background: linear-gradient(90deg, #4b5563, #374151); color: #e5e7eb;
+  border: 1px solid #9ca3af; border-radius: 4px; padding: 0.2rem;
+  font-size: 0.65rem; font-weight: bold; cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.5); width: 100%; transition: 0.2s;
+}
+.smoke-btn:active { transform: scale(0.95); }
+.smoke-btn.hidden { display: none; }
 
 .hp-row { display: flex; align-items: center; gap: 0.35rem; font-size: clamp(0.65rem, 2.8vmin, 0.85rem); flex-shrink: 0; }
 .hp-row .label { flex: 0 0 clamp(3.0rem, 20vw, 5.0rem); color: #fcd34d; font-weight: 700; font-size: 0.75rem; text-shadow: 0 0 4px rgba(0,0,0,0.8); }

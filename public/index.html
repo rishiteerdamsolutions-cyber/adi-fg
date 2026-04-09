@@ -47,13 +47,12 @@
       
       <!-- Power Moves Guide (Visible to everyone in lobby) -->
       <div class="power-info-panel lobby-guide">
-        <h3>⚡ Power Moves Guide</h3>
-        <ul>
-          <li><b>1 Lane</b> — Normal shot (1× damage)</li>
-          <li><b>2 Lanes quickly</b> — Double shot (1.5× damage each)</li>
-          <li><b>3+ Lanes quickly</b> — <span class="power-highlight">POWER MOVE!</span> (Unique skill)</li>
-        </ul>
-        <p class="power-tip">💡 Tap multiple lanes within 250ms!</p>
+        <h3>⚡ Secret Skills Guide</h3>
+        <p>
+          <b>1 Lane:</b> Normal, <b>2 Lanes:</b> Double (1.5×), <b>3+ Lanes:</b> <span class="power-highlight">POWER MOVE!</span>
+          <br><b>Sequence 1-3-5 x3:</b> Clone Rush, <b>[Smoke] Btn:</b> Stealth
+        </p>
+        <p class="power-tip">💡 Tap multiple lanes at once or learn the secret patterns!</p>
       </div>
     </div>
   </div>
@@ -84,21 +83,24 @@
         </div>
 
         <!-- Player Deck: weapon + fire lanes -->
-        <div class="player-deck">
+        <div class="player-deck" style="position:relative;">
+          <h2 class="floating-weapon-label power-highlight">YOUR WEAPON</h2>
           <aside class="weapons" id="weaponRow">
-            <h2 class="power-highlight" style="font-size: 1.1rem; text-shadow: 2px 2px 4px #000; margin:0 0 0.4rem;">YOUR WEAPON</h2>
-            <!-- Filled dynamically -->
+            <!-- Weapon Icon goes here -->
           </aside>
-          <div class="holes" id="holes"></div>
+          
+          <div class="holes-container" style="flex:1; display:flex; flex-direction:column; gap:0.2rem;">
+            <div class="holes" id="holes"></div>
+            <button id="btnSmoke" class="smoke-btn hidden">🌫️ Trigger Smoke</button>
+          </div>
           
           <!-- Power Moves Guide (Visible during battle) -->
           <div class="power-info-panel battle-guide">
-            <h3>⚡ Power Moves Guide</h3>
-            <ul>
-              <li><b>1 Lane</b> — Normal</li>
-              <li><b>2 Lanes</b> — Double (1.5×)</li>
-              <li><b>3+ Lanes</b> — <span class="power-highlight">POWER MOVE!</span></li>
-            </ul>
+            <h3 style="margin-bottom:0.1rem;">⚡ Skills</h3>
+            <p style="font-size: 0.6rem; margin:0; line-height:1.2;">
+              <b>1:</b> Normal, <b>2:</b> Double, <b>3+:</b> <span class="power-highlight">POWER</span>
+              <br><b>1-3-5x3:</b> Clones, <b>Btn:</b> Smoke
+            </p>
           </div>
         </div>
 
@@ -132,6 +134,16 @@
     <div class="modal-box">
       <h2>Next Match In</h2>
       <span id="nextTimer" class="big-cd">5</span>
+    </div>
+  </div>
+
+  <!-- ═══ WEAPON ZOOM MODAL ═══ -->
+  <div id="modalZoom" class="modal hidden" style="z-index: 3000;">
+    <div class="modal-box" style="padding: 2rem;">
+      <h2 id="zoomName" class="power-highlight" style="font-size: 2rem; margin-bottom: 1rem;">Weapon</h2>
+      <img id="zoomImg" src="" style="width: 200px; height: 200px; object-fit: contain; filter: drop-shadow(0 0 20px rgba(251,191,36,0.6)); margin-bottom: 1rem;">
+      <br>
+      <button class="gold-btn" id="btnCloseZoom">Back to Battle</button>
     </div>
   </div>
 

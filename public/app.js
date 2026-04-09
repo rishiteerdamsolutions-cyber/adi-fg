@@ -318,6 +318,13 @@ var loopRafId = null;
 var shotSeq = 0;
 var floatingTexts = [];
 
+/* Secret Mechanic Vars */
+var clickBuffer = [];
+var smokeParticles = [];
+var smokeActive = false;
+var smokeAlpha = 0;
+var cloneRushes = [];
+
 /* ─── AVATAR SIZES ─── */
 var AVATAR_SCALE = 0.10; /* 1 unit out of 10 = 10% of canvas height */
 
@@ -528,7 +535,7 @@ function setupBattle() {
 
   /* Weapon row (visual display only — single weapon) */
   var wRow = document.getElementById('weaponRow');
-  wRow.innerHTML = '<h2 class="power-highlight" style="font-size: 1.1rem; text-shadow: 2px 2px 4px #000; margin:0 0 0.4rem;">YOUR WEAPON</h2>';
+  wRow.innerHTML = '';
   var wBtn = document.createElement('button');
   wBtn.type = 'button';
   wBtn.className = 'weapon-btn active';
@@ -539,6 +546,31 @@ function setupBattle() {
   wImg.style.width = '100%'; wImg.style.height = '100%'; wImg.style.objectFit = 'contain';
   wBtn.appendChild(wImg);
   wRow.appendChild(wBtn);
+
+  // Weapon Zoom listener
+  wRow.onclick = function() {
+    sfx.playClick();
+    document.getElementById('zoomName').innerText = myFighter.char.weaponName;
+    document.getElementById('zoomImg').src = myFighter.char.weapon;
+    document.getElementById('modalZoom').classList.remove('hidden');
+  };
+  
+  var btnCloseZoom = document.getElementById('btnCloseZoom');
+  if (btnCloseZoom) {
+    btnCloseZoom.onclick = function() { sfx.playClick(); document.getElementById('modalZoom').classList.add('hidden'); };
+  }
+
+  // Smoke button visibility
+  var smokeBtn = document.getElementById('btnSmoke');
+  if (smokeBtn) {
+    smokeBtn.classList.remove('hidden');
+    smokeBtn.onclick = function() {
+      sfx.playPowerMove();
+      smokeBtn.disabled = true;
+      setTimeout(function() { smokeBtn.disabled = false; }, 30000); // 30s cd
+      socket.emit('triggerSmoke');
+    };
+  }
 
   /* Damage label */
   var dmgLabel = document.createElement('span');
@@ -580,9 +612,28 @@ function setupBattle() {
     /* Screen flash */
     var flash = document.createElement('div');
     flash.className = 'power-flash';
-    document.body.appendChild(flash);
-    setTimeout(function () { flash.remove(); }, 500);
-    /* Text popup */
+    if (btn) {
+      btn.classList.add('active');
+      setTimeout(function () { btn.classList.remove('active'); }, 150);
+    }
+    sfx.playClick();
+    
+    // Pattern tracker
+    var patternTarget = [0, 2, 4, 0, 2, 4, 0, 2, 4];
+    clickBuffer.push(laneIdx);
+    if (clickBuffer.length > patternTarget.length) clickBuffer.shift();
+    if (clickBuffer.length === patternTarget.length) {
+      var match = true;
+      for (var p = 0; p < patternTarget.length; p++) {
+        if (clickBuffer[p] !== patternTarget[p]) { match = false; break; }
+      }
+      if (match) {
+        socket.emit('triggerCloneRush');
+        clickBuffer = [];
+      }
+    }
+
+    /* Wait slightly for multiple taps (Combo System) */
     var pop = document.createElement('div');
     pop.className = 'power-indicator';
     pop.innerText = text;
@@ -801,6 +852,28 @@ socket.on('hpUpdate', function (data) {
   }
   
   updateHpBars();
+});
+
+/* ─── Secret Events ─── */
+socket.on('enemySmoke', function() {
+  if (!gameRunning) return;
+  smokeActive = true;
+  setTimeout(function() { smokeActive = false; }, 30000); // Clear after 30s
+});
+
+socket.on('cloneRushEffect', function(data) {
+  if (!gameRunning) return;
+  var isPlayerSource = amFighter && (socket.id === data.sourceId);
+  var rushStartY = isPlayerSource ? cv.height - 40 : 40;
+  var targetY = isPlayerSource ? 40 : cv.height - 40;
+  var col = isPlayerSource ? '#fcd34d' : '#ef4444'; // Gold for you, Red for enemy
+
+  var lxs = holeXs(cv.width, HOLE_COUNT);
+  for(var i of [0, 2, 4]) {
+    cloneRushes.push({
+      start: lxs[i], x: lxs[i], y: rushStartY, targetY: targetY, color: col, vy: 400 + Math.random()*200, isUp: isPlayerSource
+    });
+  }
 });
 
 /* ─── Arrow vs arrow collision ─── */
@@ -1037,6 +1110,58 @@ function loop(now) {
     ctx.shadowColor = '#000'; ctx.shadowBlur = 4;
     ctx.fillText(ft.txt, ft.x, ft.y);
     ctx.shadowBlur = 0; /* reset */
+  }
+
+  /* ─── CLONE RUSH ANIMATION ─── */
+  for (var i = cloneRushes.length - 1; i >= 0; i--) {
+    var c = cloneRushes[i];
+    
+    if (c.isUp) c.y -= c.vy * (dt||0.016);
+    else c.y += c.vy * (dt||0.016);
+    
+    // Zig-zag weave
+    c.x = c.start + Math.sin(c.y / 30) * 50 * dpr;
+    
+    ctx.fillStyle = c.color;
+    ctx.globalAlpha = 0.6;
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, 20 * dpr, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1.0;
+    
+    if ((c.isUp && c.y <= c.targetY) || (!c.isUp && c.y >= c.targetY)) {
+      cloneRushes.splice(i, 1);
+      // Let the server push HP update via hpUpdate event, no local math!
+    }
+  }
+
+  /* ─── SMOKE STEALTH RENDER ─── */
+  if (smokeActive) {
+    smokeAlpha = Math.min(1, smokeAlpha + (dt||0.016) * 2);
+    if (smokeParticles.length < 250) {
+      smokeParticles.push({
+        x: Math.random() * w, y: h - (Math.random() * (h * 0.25)),
+        r: (20 + Math.random() * 40) * dpr,
+        vx: (Math.random() - 0.5) * 20 * dpr, vy: (Math.random() - 0.5) * 10 * dpr
+      });
+    }
+  } else {
+    smokeAlpha = Math.max(0, smokeAlpha - (dt||0.016) * 2);
+  }
+
+  if (smokeAlpha > 0) {
+    ctx.globalAlpha = smokeAlpha;
+    for (var p = 0; p < smokeParticles.length; p++) {
+      var sp = smokeParticles[p];
+      sp.x += sp.vx * (dt||0.016); sp.y += sp.vy * (dt||0.016);
+      if(sp.x < -100) sp.x = w+100; if(sp.x > w+100) sp.x = -100;
+      var radGrad = ctx.createRadialGradient(sp.x, sp.y, 0, sp.x, sp.y, sp.r);
+      radGrad.addColorStop(0, 'rgba(100,105,110,0.95)');
+      radGrad.addColorStop(1, 'rgba(80,85,90,0)');
+      ctx.fillStyle = radGrad;
+      ctx.beginPath(); ctx.arc(sp.x, sp.y, sp.r, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.globalAlpha = 1.0;
   }
 
   /* ─── End state overlay ─── */
