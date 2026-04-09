@@ -94,6 +94,8 @@
       for(var i = clones.length - 1; i >= 0; i--) {
         var c = clones[i];
         c.y -= c.vy * dt;
+        // Zig-zag motion
+        c.x = c.startX + Math.sin(c.y / 30) * 50; 
         
         ctx.fillStyle = c.color;
         ctx.globalAlpha = 0.6; // ghost effect
@@ -110,9 +112,10 @@
       /* ─── SMOKE STEALTH RENDER ─── */
       if (smokeActive) {
         smokeAlpha = Math.min(1, smokeAlpha + dt * 2);
-        if (smokeParticles.length < 80) {
+        // 3x more intensive smoke capped to bottom 25% of board
+        if (smokeParticles.length < 250) {
           smokeParticles.push({
-            x: Math.random() * w, y: h - (Math.random() * 120),
+            x: Math.random() * w, y: h - (Math.random() * 150),
             r: 20 + Math.random() * 40,
             vx: (Math.random() - 0.5) * 20, vy: (Math.random() - 0.5) * 10
           });
@@ -159,30 +162,32 @@
     }
 
     function triggerCloneRush() {
-      // Spawn 3 clones
-      clones.push({ x: lanes[0], y: h-40, vy: 500, color: '#fbbf24' });
-      clones.push({ x: lanes[2], y: h-40, vy: 550, color: '#fbbf24' });
-      clones.push({ x: lanes[4], y: h-40, vy: 450, color: '#fbbf24' });
+      // Spawn 3 clones going zig zag
+      clones.push({ startX: lanes[0], x: lanes[0], y: h-40, vy: 400 + Math.random()*200, color: '#fbbf24' });
+      clones.push({ startX: lanes[2], x: lanes[2], y: h-40, vy: 400 + Math.random()*200, color: '#fbbf24' });
+      clones.push({ startX: lanes[4], x: lanes[4], y: h-40, vy: 400 + Math.random()*200, color: '#fbbf24' });
     }
 
     function doDamage() {
-      // Logic: loses half of 20% of max blood meaning 10% each hit? OR "lose 20% of the blood". 
-      // The instructions said "20% max hp damage". So 60 dmg per clone total? No, maybe 20% per *rush trigger*.
-      // We have 3 clones, so we'll do 20% / 3 per clone impact.
-      var dmg = maxHp * 0.20 / 3;
+      // Logic: Hit is based on luck. Not all clones hit.
+      if (Math.random() > 0.40) { // 60% chance to miss entirely
+        spawnHitText('Miss!', '#9ca3af');
+        return;
+      }
+      
+      var dmg = maxHp * 0.20;
       opHp -= dmg;
       if (opHp <= (maxHp * 0.20)) {
-        // If less than 20% is there, opposite is lost the game! We just kill them.
         opHp = 0; 
       }
-      spawnHitText(dmg * 3); // Just show the whole chunk visually
+      spawnHitText('-20% FATAL LUCK!', '#ef4444');
     }
 
-    function spawnHitText(val) {
-      if(val < 1) return; // don't spam 3 times
+    function spawnHitText(str, color) {
       var el = document.createElement('div');
       el.className = 'hit-number';
-      el.innerText = '-20% HP!';
+      el.innerText = str;
+      el.style.color = color || '#ef4444';
       el.style.left = '45%';
       el.style.top = '10%';
       document.body.appendChild(el);
@@ -190,7 +195,9 @@
     }
 
     function triggerSmoke() {
-      smokeActive = !smokeActive; 
+      smokeActive = true;
+      // Smoke disappears after 30 seconds
+      setTimeout(function() { smokeActive = false; }, 30000);
     }
 
     function testPattern() {
