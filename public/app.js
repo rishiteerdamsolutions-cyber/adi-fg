@@ -119,9 +119,10 @@ document.querySelectorAll('.emote-btn').forEach(function(btn) {
 socket.on('showEmote', function(data) {
   var battleDiv = document.getElementById('screenBattle');
   if (battleDiv.style.display === 'none') return;
+  var words = { '😂': 'Haha!', '😡': 'Grrr!', '🔥': 'Epic!', '👏': 'GG!' };
   var el = document.createElement('div');
   el.className = 'floating-emote';
-  el.innerText = data.emoji + ' ' + data.username;
+  el.innerText = data.emoji + ' ' + (words[data.emoji] || '') + ' — ' + data.username;
   el.style.left = (20 + Math.random() * 60) + 'vw';
   el.style.bottom = (20 + Math.random() * 40) + 'vh';
   battleDiv.appendChild(el);
@@ -524,7 +525,7 @@ function setupBattle() {
 
   /* Weapon row (visual display only — single weapon) */
   var wRow = document.getElementById('weaponRow');
-  wRow.innerHTML = '<h2>Your weapon</h2>';
+  wRow.innerHTML = '<h2 class="power-highlight" style="font-size: 0.8rem; margin:0 0 0.2rem;">YOUR WEAPON</h2>';
   var wBtn = document.createElement('button');
   wBtn.type = 'button';
   wBtn.className = 'weapon-btn active';
