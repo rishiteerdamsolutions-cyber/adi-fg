@@ -611,29 +611,10 @@ function setupBattle() {
   function showPowerEffect(text) {
     /* Screen flash */
     var flash = document.createElement('div');
-    flash.className = 'power-flash';
-    if (btn) {
-      btn.classList.add('active');
-      setTimeout(function () { btn.classList.remove('active'); }, 150);
-    }
-    sfx.playClick();
-    
-    // Pattern tracker
-    var patternTarget = [0, 2, 4, 0, 2, 4, 0, 2, 4];
-    clickBuffer.push(laneIdx);
-    if (clickBuffer.length > patternTarget.length) clickBuffer.shift();
-    if (clickBuffer.length === patternTarget.length) {
-      var match = true;
-      for (var p = 0; p < patternTarget.length; p++) {
-        if (clickBuffer[p] !== patternTarget[p]) { match = false; break; }
-      }
-      if (match) {
-        socket.emit('triggerCloneRush');
-        clickBuffer = [];
-      }
-    }
+    document.body.appendChild(flash);
+    setTimeout(function () { flash.remove(); }, 500);
 
-    /* Wait slightly for multiple taps (Combo System) */
+    /* Text popup */
     var pop = document.createElement('div');
     pop.className = 'power-indicator';
     pop.innerText = text;
@@ -654,6 +635,21 @@ function setupBattle() {
         if (e) e.preventDefault();
         if (!gameRunning || !amFighter || vsPhase) return;
         sfx.playClick();
+
+        /* Pattern tracker (1-3-5 combo) */
+        var patternTarget = [0, 2, 4, 0, 2, 4, 0, 2, 4];
+        clickBuffer.push(hi);
+        if (clickBuffer.length > patternTarget.length) clickBuffer.shift();
+        if (clickBuffer.length === patternTarget.length) {
+          var match = true;
+          for (var p = 0; p < patternTarget.length; p++) {
+            if (clickBuffer[p] !== patternTarget[p]) { match = false; break; }
+          }
+          if (match) {
+            socket.emit('triggerCloneRush');
+            clickBuffer = [];
+          }
+        }
 
         /* Add to combo buffer */
         if (pendingLanes.indexOf(hi) === -1) pendingLanes.push(hi);
