@@ -558,15 +558,26 @@ function setupBattle() {
     btnCloseZoom.onclick = function() { sfx.playClick(); document.getElementById('modalZoom').classList.add('hidden'); };
   }
 
-  // Smoke button visibility
+  // Buttons visibility & limits
   var smokeBtn = document.getElementById('btnSmoke');
-  if (smokeBtn) {
+  var clonesBtn = document.getElementById('btnClones');
+  if (smokeBtn && clonesBtn) {
     smokeBtn.classList.remove('hidden');
-    smokeBtn.onclick = function() {
+    clonesBtn.classList.remove('hidden');
+    smokeBtn.disabled = false;  // Ensure reset on new match
+    clonesBtn.disabled = false;
+    
+    smokeBtn.onclick = function(e) {
+      if(e) e.preventDefault();
       sfx.playPowerMove();
-      smokeBtn.disabled = true;
-      setTimeout(function() { smokeBtn.disabled = false; }, 30000); // 30s cd
+      smokeBtn.disabled = true; // Perm disable for this match
       socket.emit('triggerSmoke');
+    };
+    clonesBtn.onclick = function(e) {
+      if(e) e.preventDefault();
+      sfx.playPowerMove();
+      clonesBtn.disabled = true; // Perm disable for this match
+      socket.emit('triggerCloneRush');
     };
   }
 
@@ -633,15 +644,6 @@ function setupBattle() {
         if (e) e.preventDefault();
         if (!gameRunning || !amFighter || vsPhase) return;
         sfx.playClick();
-
-        /* Pattern tracker (1-3-5 combo) */
-        /* Pattern tracker (1-3-5 combo) */
-        clickBuffer.push(hi);
-        if (clickBuffer.length > 20) clickBuffer.shift();
-        if (clickBuffer.join('').indexOf('024024024') !== -1) {
-          socket.emit('triggerCloneRush');
-          clickBuffer = [];
-        }
 
         /* Add to combo buffer */
         if (pendingLanes.indexOf(hi) === -1) pendingLanes.push(hi);
