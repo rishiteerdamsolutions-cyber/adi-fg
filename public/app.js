@@ -1146,11 +1146,13 @@ function loop(now) {
     // Has it touched the target avatar's hit box?
     if (!c.hit && Math.abs(c.x - hitTarget.cx) <= cw / 2 + 20*dpr && Math.abs(c.y - hitTarget.cy) <= ch / 2 + 20*dpr) {
       c.hit = true;
-      createHitSplatter(c.x, c.y, '#f59e0b');
-      sfx.playHit();
-      // Only emit damage if it's MY clone hitting my OPPONENT.
-      if (c.isUp && amFighter) {
-        socket.emit('takeCloneHit', { hitId: 'hit_clone_' + c.id });
+      if (amFighter) {
+        if (c.isUp) {
+          sfx.playHitOpponent();
+          socket.emit('takeCloneHit', { hitId: 'hit_clone_' + c.id });
+        } else {
+          sfx.playTakeDamage();
+        }
       }
       cloneRushes.splice(i, 1);
       continue;
