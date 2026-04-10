@@ -247,7 +247,7 @@ io.on('connection', (socket) => {
         
         if (opponent.hp <= 0) handleGameOver(room, socket.id);
       }
-    }, 1200); // 1.2s flight time match
+    }, 7500); // 7.5s flight time match for slow moving clones
   });
 
   socket.on('fire', (payload = {}) => {

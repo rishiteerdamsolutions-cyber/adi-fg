@@ -859,18 +859,13 @@ socket.on('cloneRushEffect', function(data) {
   var rushStartY = isPlayerSource ? cv.height - 40 : 40;
   var targetY = isPlayerSource ? 40 : cv.height - 40;
   
-  var img = new Image();
-  if (isPlayerSource) {
-     if (myFighter && myFighter.char) img.src = myFighter.char.head;
-  } else {
-     if (opFighter && opFighter.char) img.src = opFighter.char.head;
-     else if (myFighter) img.src = myFighter.char.head; // fallback spectator
-  }
-
   var lxs = holeXs(cv.width, HOLE_COUNT);
   for(var i of [0, 2, 4]) {
     cloneRushes.push({
-      start: lxs[i], x: lxs[i], y: rushStartY, targetY: targetY, img: img, vy: 400 + Math.random()*200, isUp: isPlayerSource
+      start: lxs[i], x: lxs[i], y: rushStartY, targetY: targetY, 
+      img: (isPlayerSource ? myAvatarImg : opAvatarImg), 
+      vy: 60 * dpr, // Extremely slow: roughly 8 seconds to cross screen
+      isUp: isPlayerSource
     });
   }
 });
@@ -1118,8 +1113,8 @@ function loop(now) {
     if (c.isUp) c.y -= c.vy * (dt||0.016);
     else c.y += c.vy * (dt||0.016);
     
-    // Zig-zag weave
-    c.x = c.start + Math.sin(c.y / 30) * 50 * dpr;
+    // Zig-zag weave (slow horizontal sway)
+    c.x = c.start + Math.sin(c.y / 15) * 40 * dpr;
     
     ctx.globalAlpha = 0.6;
     if (c.img) {
