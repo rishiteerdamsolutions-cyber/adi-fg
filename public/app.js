@@ -533,7 +533,7 @@ function setupBattle() {
   /* Header — show only user-entered names, NOT character names */
   document.getElementById('gameH1').innerText = myFighter.username + ' vs ' + opFighter.username;
   document.getElementById('opponentTitle').innerText = opFighter.username + ' — ' + opFighter.char.weaponName;
-  document.getElementById('opHpLabel').innerText = opFighter.username;
+  // removed setting opHpLabel to user name to avoid redundancy
 
   /* Weapon row (visual display only — single weapon) */
   var wRow = document.getElementById('weaponRow');
