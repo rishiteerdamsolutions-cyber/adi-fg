@@ -410,7 +410,11 @@ function battleClockSec() {
 
 function phaseForFighter(fighter) {
   var n = fighter && fighter.char && fighter.char.assetIndex ? fighter.char.assetIndex : 1;
-  return n * 0.73 + battleClockSec() * (0.65 + (n % 3) * 0.08);
+  var dmg = (fighter && fighter.char && fighter.char.dmg) || 15;
+  // Lower dmg = faster speed! Scale is relative to heaviest dmg (25).
+  // 25 dmg (heavy) = 1x speed. 8 dmg (light) = 3.1x faster dodging speed!
+  var speedMult = Math.max(0.4, 25 / dmg);
+  return n * 0.73 + battleClockSec() * speedMult;
 }
 
 function uniqueSortedLanes(lanes) {
@@ -643,7 +647,13 @@ function setupBattle() {
       function queueLane(e) {
         if (e) e.preventDefault();
         if (!gameRunning || !amFighter || vsPhase) return;
+        if (b.disabled) return; // Prevent firing if on cooldown
         sfx.playClick();
+
+        // Speed vs Power Cooldown: 30ms penalty per damage point
+        var cdMs = (myDmg || 15) * 30; // e.g., 8 dmg = 240ms, 25 dmg = 750ms
+        b.disabled = true;
+        setTimeout(function() { b.disabled = false; }, cdMs);
 
         /* Add to combo buffer */
         if (pendingLanes.indexOf(hi) === -1) pendingLanes.push(hi);
