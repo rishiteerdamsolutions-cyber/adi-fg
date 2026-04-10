@@ -133,6 +133,7 @@
     <div class="modal-box">
       <h1 id="winText">Game Over</h1>
       <p id="nextText" class="dim">Next match starting soon...</p>
+      <button onclick="document.getElementById('modalGO').classList.add('hidden'); document.getElementById('nextOv').classList.add('hidden'); showLobby();" class="btn" style="margin-top: 15px;">Return to Arena</button>
     </div>
   </div>
 
@@ -141,6 +142,8 @@
     <div class="modal-box">
       <h2>Next Match In</h2>
       <span id="nextTimer" class="big-cd">5</span>
+      <br>
+      <button onclick="document.getElementById('modalGO').classList.add('hidden'); document.getElementById('nextOv').classList.add('hidden'); showLobby();" class="btn" style="margin-top: 15px;">Return to Arena</button>
     </div>
   </div>
 

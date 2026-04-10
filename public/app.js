@@ -724,8 +724,13 @@ function updateHpBars() {
 }
 
 function holeXs(w, n) {
-  var margin = w * 0.1, usable = w - 2 * margin, xs = [];
-  for (var i = 0; i < n; i++) xs.push(margin + (usable * i) / (n - 1 || 1));
+  // Gap is exactly 10% of width (reduced by 10% from original 20%)
+  // n=5 holes -> 4 gaps -> usable width = 4 * 10% = 40% of canvas width
+  var gapFrac = 0.10;
+  var usable = w * (gapFrac * (n - 1 || 1));
+  var margin = (w - usable) / 2;
+  var xs = [];
+  for (var i = 0; i < n; i++) xs.push(margin + gapFrac * w * i);
   return xs;
 }
 
@@ -737,8 +742,12 @@ function opLayout() {
   var imgW = opAvatarLoaded ? (imgH * opAvatarImg.width / opAvatarImg.height) : imgH * 0.7;
   var maxW = w * 0.3;
   if (imgW > maxW) { var sc = maxW / imgW; imgW = maxW; imgH *= sc; }
-  var marginX = 10 * dpr;
-  var panRange = Math.max(0, w / 2 - imgW / 2 - marginX);
+  
+  // Restrict panRange exactly to the outermost holes (usable/2)
+  var gapFrac = 0.10;
+  var usable = w * (gapFrac * (HOLE_COUNT - 1));
+  var panRange = usable / 2;
+  
   var cx = w / 2 + Math.sin(phaseForFighter(opFighter)) * panRange;
   var cy = h * AVATAR_TOP_FRAC; /* unit 2 */
   return { cx: cx, cy: cy, iw: imgW, ih: imgH, footY: cy + imgH / 2 };
@@ -752,8 +761,12 @@ function myLayout() {
   var imgW = myAvatarLoaded ? (imgH * myAvatarImg.width / myAvatarImg.height) : imgH * 0.7;
   var maxW = w * 0.3;
   if (imgW > maxW) { var sc = maxW / imgW; imgW = maxW; imgH *= sc; }
-  var marginX = 10 * dpr;
-  var panRange = Math.max(0, w / 2 - imgW / 2 - marginX);
+  
+  // Restrict panRange exactly to the outermost holes (usable/2)
+  var gapFrac = 0.10;
+  var usable = w * (gapFrac * (HOLE_COUNT - 1));
+  var panRange = usable / 2;
+  
   var cx = w / 2 + Math.sin(phaseForFighter(myFighter)) * panRange;
   var cy = h * AVATAR_BOTTOM_FRAC; /* unit 8 */
   return { cx: cx, cy: cy, iw: imgW, ih: imgH, headY: cy - imgH / 2 };
