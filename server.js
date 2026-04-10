@@ -228,6 +228,7 @@ io.on('connection', (socket) => {
     
     // Broadcast effect
     io.to(myRoomId).emit('cloneRushEffect', { sourceId: socket.id });
+  });
 
   socket.on('takeCloneHit', ({ hitId } = {}) => {
     if (!myRoomId) return;
