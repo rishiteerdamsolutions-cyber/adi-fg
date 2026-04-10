@@ -635,18 +635,12 @@ function setupBattle() {
         sfx.playClick();
 
         /* Pattern tracker (1-3-5 combo) */
-        var patternTarget = [0, 2, 4, 0, 2, 4, 0, 2, 4];
+        /* Pattern tracker (1-3-5 combo) */
         clickBuffer.push(hi);
-        if (clickBuffer.length > patternTarget.length) clickBuffer.shift();
-        if (clickBuffer.length === patternTarget.length) {
-          var match = true;
-          for (var p = 0; p < patternTarget.length; p++) {
-            if (clickBuffer[p] !== patternTarget[p]) { match = false; break; }
-          }
-          if (match) {
-            socket.emit('triggerCloneRush');
-            clickBuffer = [];
-          }
+        if (clickBuffer.length > 20) clickBuffer.shift();
+        if (clickBuffer.join('').indexOf('024024024') !== -1) {
+          socket.emit('triggerCloneRush');
+          clickBuffer = [];
         }
 
         /* Add to combo buffer */
@@ -1126,8 +1120,12 @@ function loop(now) {
     c.x = c.start + Math.sin(c.y / 30) * 50 * dpr;
     
     ctx.globalAlpha = 0.6;
-    if (c.img && c.img.complete) {
-      ctx.drawImage(c.img, c.x - 20*dpr, c.y - 20*dpr, 40*dpr, 40*dpr);
+    if (c.img) {
+      try {
+        ctx.drawImage(c.img, c.x - 20*dpr, c.y - 20*dpr, 40*dpr, 40*dpr);
+      } catch(e) {
+        // Fallback or ignore broken image to prevent loop crash
+      }
     }
     ctx.globalAlpha = 1.0;
     
