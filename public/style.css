@@ -253,7 +253,6 @@ h1 {
 .hp-fill.player { background: linear-gradient(90deg, #14532d, #22c55e); }
 
 .arena-outer {
-  perspective: min(520px, 140vw); perspective-origin: 50% 88%;
   flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; align-items: stretch;
   position: relative; z-index: 1; overflow: hidden;
   border-radius: clamp(0.55rem, 2.2vmin, 0.95rem);
@@ -302,10 +301,10 @@ canvas { display: block; width: 100%; height: 100%; }
 
 /* Responsive */
 @media (max-width: 520px) {
-  .arena { transform: rotateX(6deg); min-height: clamp(9.5rem, 36svmin, 13rem); }
+  .arena { min-height: clamp(9.5rem, 36svmin, 13rem); }
 }
 @media (max-height: 640px) {
-  .arena { transform: rotateX(4deg); min-height: clamp(8.5rem, 28svmin, 11rem); }
+  .arena { min-height: clamp(8.5rem, 28svmin, 11rem); }
   h1 { font-size: clamp(0.65rem, 1.8vmin, 0.8rem); }
   .hole-btn { min-height: max(40px, 2.2rem); }
 }
