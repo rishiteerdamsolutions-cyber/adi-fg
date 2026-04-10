@@ -1138,10 +1138,10 @@ function loop(now) {
     }
     ctx.globalAlpha = 1.0;
     
-    // Collision tracking
+    // Collision tracking (Massive forgiving hit boxes for Clones)
     var hitTarget = c.isUp ? OL : ML;
-    var cw = (hitTarget.iw || 40) * 0.72;
-    var ch = (hitTarget.ih || 40) * 0.72;
+    var cw = (hitTarget.iw || 40) * 1.1; // Fully encompass visually overlapping 
+    var ch = (hitTarget.ih || 40) * 1.1;
     
     // Has it touched the target avatar's hit box?
     if (!c.hit && Math.abs(c.x - hitTarget.cx) <= cw / 2 + 20*dpr && Math.abs(c.y - hitTarget.cy) <= ch / 2 + 20*dpr) {
