@@ -229,25 +229,26 @@ io.on('connection', (socket) => {
     // Broadcast effect
     io.to(myRoomId).emit('cloneRushEffect', { sourceId: socket.id });
 
-    // Luck calculation (40% hit chance to deal 20% max hp)
-    setTimeout(() => {
-      if (room.status !== 'playing') return;
-      if (Math.random() <= 0.40) {
-        const opId = room.fighterIds.find(x => x !== socket.id);
-        if (!opId || !room.fighters[opId]) return;
-        const opponent = room.fighters[opId];
-        const rawDmg = Math.round(opponent.maxHp * 0.20);
-        
-        const id = `${socket.id}:clone:${Date.now()}`;
-        if (room.hitIds.has(id)) return;
-        room.hitIds.add(id);
+  socket.on('takeCloneHit', ({ hitId } = {}) => {
+    if (!myRoomId) return;
+    const room = getRoom(myRoomId);
+    if (room.status !== 'playing' || !room.fighters[socket.id]) return;
+    
+    // The clone hit the opponent correctly on the client side
+    const opId = room.fighterIds.find(x => x !== socket.id);
+    if (!opId || !room.fighters[opId]) return;
+    
+    const id = typeof hitId === 'string' ? hitId.slice(0, 80) : `${socket.id}:clone:${Date.now()}`;
+    if (room.hitIds.has(id)) return;
+    room.hitIds.add(id);
 
-        opponent.hp = Math.max(0, opponent.hp - rawDmg);
-        io.to(myRoomId).emit('hpUpdate', { id: opId, hp: opponent.hp, maxHp: opponent.maxHp, dmg: rawDmg });
-        
-        if (opponent.hp <= 0) handleGameOver(room, socket.id);
-      }
-    }, 7500); // 7.5s flight time match for slow moving clones
+    const opponent = room.fighters[opId];
+    const rawDmg = Math.round(opponent.maxHp * 0.20);
+
+    opponent.hp = Math.max(0, opponent.hp - rawDmg);
+    io.to(myRoomId).emit('hpUpdate', { id: opId, hp: opponent.hp, maxHp: opponent.maxHp, dmg: rawDmg });
+    
+    if (opponent.hp <= 0) handleGameOver(room, socket.id);
   });
 
   socket.on('fire', (payload = {}) => {

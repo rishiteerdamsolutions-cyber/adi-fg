@@ -865,7 +865,9 @@ socket.on('cloneRushEffect', function(data) {
       start: lxs[i], x: lxs[i], y: rushStartY, targetY: targetY, 
       img: (isPlayerSource ? myAvatarImg : opAvatarImg), 
       vy: 60 * dpr, // Extremely slow: roughly 8 seconds to cross screen
-      isUp: isPlayerSource
+      isUp: isPlayerSource,
+      id: Math.random().toString(36).substr(2, 9),
+      hit: false
     });
   }
 });
@@ -1126,9 +1128,26 @@ function loop(now) {
     }
     ctx.globalAlpha = 1.0;
     
+    // Collision tracking
+    var hitTarget = c.isUp ? OL : ML;
+    var cw = (hitTarget.iw || 40) * 0.72;
+    var ch = (hitTarget.ih || 40) * 0.72;
+    
+    // Has it touched the target avatar's hit box?
+    if (!c.hit && Math.abs(c.x - hitTarget.cx) <= cw / 2 + 20*dpr && Math.abs(c.y - hitTarget.cy) <= ch / 2 + 20*dpr) {
+      c.hit = true;
+      createHitSplatter(c.x, c.y, '#f59e0b');
+      sfx.playHit();
+      // Only emit damage if it's MY clone hitting my OPPONENT.
+      if (c.isUp && amFighter) {
+        socket.emit('takeCloneHit', { hitId: 'hit_clone_' + c.id });
+      }
+      cloneRushes.splice(i, 1);
+      continue;
+    }
+    
     if ((c.isUp && c.y <= c.targetY) || (!c.isUp && c.y >= c.targetY)) {
       cloneRushes.splice(i, 1);
-      // Let the server push HP update via hpUpdate event, no local math!
     }
   }
 
