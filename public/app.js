@@ -724,9 +724,9 @@ function updateHpBars() {
 }
 
 function holeXs(w, n) {
-  // Gap is exactly 10% of width (reduced by 10% from original 20%)
-  // n=5 holes -> 4 gaps -> usable width = 4 * 10% = 40% of canvas width
-  var gapFrac = 0.10;
+  // Gap is exactly 15% of width (reduced by 5% from original 20%)
+  // n=5 holes -> 4 gaps -> usable width = 4 * 15% = 60% of canvas width
+  var gapFrac = 0.15;
   var usable = w * (gapFrac * (n - 1 || 1));
   var margin = (w - usable) / 2;
   var xs = [];
@@ -744,7 +744,7 @@ function opLayout() {
   if (imgW > maxW) { var sc = maxW / imgW; imgW = maxW; imgH *= sc; }
   
   // Restrict panRange exactly to the outermost holes (usable/2)
-  var gapFrac = 0.10;
+  var gapFrac = 0.15;
   var usable = w * (gapFrac * (HOLE_COUNT - 1));
   var panRange = usable / 2;
   
@@ -763,7 +763,7 @@ function myLayout() {
   if (imgW > maxW) { var sc = maxW / imgW; imgW = maxW; imgH *= sc; }
   
   // Restrict panRange exactly to the outermost holes (usable/2)
-  var gapFrac = 0.10;
+  var gapFrac = 0.15;
   var usable = w * (gapFrac * (HOLE_COUNT - 1));
   var panRange = usable / 2;
   
