@@ -20,7 +20,7 @@ body {
 
 /* ═══ AUDIO TOGGLE ═══ */
 .audio-toggle {
-  position: absolute; top: clamp(10px, 2vh, 20px); left: 80px;
+  position: absolute; top: clamp(10px, 2vh, 20px); left: 45px;
   z-index: 999;
   width: 40px; height: 40px; border-radius: 50%;
   border: 1px solid rgba(251, 191, 36, 0.5);
