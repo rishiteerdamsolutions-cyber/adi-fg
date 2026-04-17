@@ -42,6 +42,7 @@
         <ul id="pList" class="p-list"></ul>
       </div>
       <button class="gold-btn" id="btnForce" style="display:none">⚡ Start Now!</button>
+      <button class="gold-btn" id="btnRejoin" style="display:none; margin-top: 0.5rem;">▶ Rejoin Matchmaking</button>
       <button class="sec-btn" id="btnLeaderboardToggle" style="margin-top: 0.5rem; width: 100%;">🏆 Show Leaderboard</button>
       <p id="lobbyMsg" class="info"></p>
       
@@ -92,6 +93,7 @@
           <div class="skills-panel" style="position:absolute; left: 5px; top: 50%; transform: translateY(-50%) scale(0.5); transform-origin: left center; display:flex; flex-direction:column; gap: 15px; z-index:1000;">
             <button id="btnSmoke" class="smoke-btn round hidden" style="background: url('smoke.png') no-repeat center/cover; border: 2px solid rgba(255,255,255,0.4);" title="Smoke Stealth"></button>
             <button id="btnClones" class="smoke-btn round hidden" style="background: url('clones.png') no-repeat center/cover; border: 2px solid rgba(255,255,255,0.4);" title="Clone Rush"></button>
+            <button id="btnGuard" class="smoke-btn round hidden" style="background: url('guard.png') no-repeat center/cover, rgba(15,23,42,0.85); border: 2px solid rgba(255,255,255,0.4);" title="Guardian Shield">🛡️</button>
           </div>
         </div>
 
@@ -120,11 +122,17 @@
     </div>
 
     <!-- Emotes Overlay -->
-    <div class="emotes-panel">
-      <button class="emote-btn" data-emote="😂">😂</button>
-      <button class="emote-btn" data-emote="😡">😡</button>
-      <button class="emote-btn" data-emote="🔥">🔥</button>
-      <button class="emote-btn" data-emote="👏">👏</button>
+    <div class="emotes-panel left" aria-label="Left reactions">
+      <button class="emote-btn" data-side="left" data-emote="😂">😂</button>
+      <button class="emote-btn" data-side="left" data-emote="😡">😡</button>
+      <button class="emote-btn" data-side="left" data-emote="🔥">🔥</button>
+      <button class="emote-btn" data-side="left" data-emote="👏">👏</button>
+    </div>
+    <div class="emotes-panel right" aria-label="Right reactions">
+      <button class="emote-btn" data-side="right" data-emote="😂">😂</button>
+      <button class="emote-btn" data-side="right" data-emote="😡">😡</button>
+      <button class="emote-btn" data-side="right" data-emote="🔥">🔥</button>
+      <button class="emote-btn" data-side="right" data-emote="👏">👏</button>
     </div>
   </div>
 
@@ -133,7 +141,7 @@
     <div class="modal-box">
       <h1 id="winText">Game Over</h1>
       <p id="nextText" class="dim">Next match starting soon...</p>
-      <button onclick="document.getElementById('modalGO').classList.add('hidden'); document.getElementById('nextOv').classList.add('hidden'); showLobby();" class="btn" style="margin-top: 15px;">Return to Arena</button>
+      <button id="btnGoArenaFromOver" class="btn" style="margin-top: 15px;">Go to Arena</button>
     </div>
   </div>
 
@@ -143,7 +151,7 @@
       <h2>Next Match In</h2>
       <span id="nextTimer" class="big-cd">5</span>
       <br>
-      <button onclick="document.getElementById('modalGO').classList.add('hidden'); document.getElementById('nextOv').classList.add('hidden'); showLobby();" class="btn" style="margin-top: 15px;">Return to Arena</button>
+      <button id="btnGoArenaFromNext" class="btn" style="margin-top: 15px;">Go to Arena</button>
     </div>
   </div>
 

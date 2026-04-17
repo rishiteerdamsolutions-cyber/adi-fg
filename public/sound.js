@@ -290,6 +290,24 @@ class SoundEngine {
     this.playTone(300, 'sawtooth', 0.4, 0.8);
     setTimeout(() => this.playTone(250, 'sawtooth', 0.6, 0.8), 300);
   }
+
+  playReactionWord(word) {
+    if (!word || this.isMuted) return;
+    try {
+      if (window.speechSynthesis && typeof window.SpeechSynthesisUtterance !== 'undefined') {
+        const u = new SpeechSynthesisUtterance(String(word));
+        u.rate = 1.05;
+        u.pitch = 1.0;
+        u.volume = 0.6;
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(u);
+        return;
+      }
+    } catch (e) {
+      // Fall through to subtle fallback chirp.
+    }
+    this.playTone(920, 'sine', 0.12, 0.2);
+  }
 }
 
 const sfx = new SoundEngine();

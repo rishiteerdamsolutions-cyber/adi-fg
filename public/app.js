@@ -14,6 +14,7 @@ var amFighter = false;
 var gameData = null;
 var myFighter = null;
 var opFighter = null;
+var isQueuedForMatch = true;
 
 /* ═══ AUDIO TOGGLE ═══ */
 var $btnAudio = document.getElementById('btnAudioToggle');
@@ -67,9 +68,11 @@ socket.on('lobbyUpdate', function (d) {
   d.players.forEach(function (p) {
     var winStr = p.wins > 0 ? ' <span class="win-pill">🏆 ' + p.wins + ' Wins</span>' : '';
     var youStr = p.id === socket.id ? ' <span class="you-badge sm">YOU</span>' : '';
+    var statusStr = p.queued === false ? ' <span class="win-pill">Arena only</span>' : '';
     var li = document.createElement('li'); li.className = 'p-item';
-    li.innerHTML = '<span class="pn">#' + p.num + '</span> <span class="pnm">' + p.username + '</span>' + winStr + youStr;
+    li.innerHTML = '<span class="pn">#' + p.num + '</span> <span class="pnm">' + p.username + '</span>' + winStr + statusStr + youStr;
     ul.appendChild(li);
+    if (p.id === socket.id) isQueuedForMatch = p.queued !== false;
   });
   
   if (leaderUl) {
@@ -83,7 +86,9 @@ socket.on('lobbyUpdate', function (d) {
   }
 
   var btnForce = document.getElementById('btnForce');
-  if (btnForce) btnForce.style.display = d.count >= 2 ? 'block' : 'none';
+  var queuedCount = d.players.filter(function (p) { return p.queued !== false; }).length;
+  if (btnForce) btnForce.style.display = queuedCount >= 2 ? 'block' : 'none';
+  syncQueueButtons();
 });
 
 socket.on('timerTick', function (s) {
@@ -109,9 +114,9 @@ if (btnLeader && modLeader && btnClsLeader) {
 }
 
 /* ═══ EMOTES ═══ */
-document.querySelectorAll('.emote-btn').forEach(function(btn) {
+document.querySelectorAll('.emotes-panel .emote-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
-    socket.emit('emote', this.dataset.emote);
+    socket.emit('emote', { emoji: this.dataset.emote, side: this.dataset.side || 'right' });
     sfx.playClick();
   });
 });
@@ -119,14 +124,16 @@ document.querySelectorAll('.emote-btn').forEach(function(btn) {
 socket.on('showEmote', function(data) {
   var battleDiv = document.getElementById('screenBattle');
   if (battleDiv.style.display === 'none') return;
-  var words = { '😂': 'Haha!', '😡': 'Grrr!', '🔥': 'Epic!', '👏': 'GG!' };
+  var words = { '😂': 'oops', '😡': 'bad', '🔥': 'excellent', '👏': 'good' };
   var el = document.createElement('div');
   el.className = 'floating-emote';
-  el.innerText = data.emoji + ' ' + (words[data.emoji] || '') + ' — ' + data.username;
-  el.style.left = (20 + Math.random() * 60) + 'vw';
-  el.style.bottom = (20 + Math.random() * 40) + 'vh';
+  el.innerText = data.emoji;
+  var isLeft = data.side === 'left';
+  el.style.left = isLeft ? '12%' : '82%';
+  el.style.bottom = (12 + Math.random() * 12) + '%';
   battleDiv.appendChild(el);
-  setTimeout(function() { el.remove(); }, 2000);
+  sfx.playReactionWord(words[data.emoji] || 'good');
+  setTimeout(function() { el.remove(); }, 1800);
 });
 
 /* ═══ GAME START ═══ */
@@ -145,7 +152,7 @@ socket.on('gameStart', function (data) {
   banner.classList.toggle('hidden', amFighter);
 
   var emotesPanel = document.querySelector('.emotes-panel');
-  if (emotesPanel) emotesPanel.style.display = amFighter ? 'none' : 'flex';
+  if (emotesPanel) emotesPanel.style.display = 'flex';
 
   if (amFighter) {
     myFighter = data.fighters[socket.id];
@@ -274,6 +281,7 @@ socket.on('gameOver', function (data) {
   document.getElementById('winText').innerText = data.winner ? '🏆 ' + data.winner.username + ' wins!' : 'Draw!';
   modal.classList.remove('hidden');
   gameRunning = false;
+  clearMatchEffects();
   launchConfetti();
 });
 
@@ -319,9 +327,11 @@ var shotSeq = 0;
 var floatingTexts = [];
 
 /* Secret Mechanic Vars */
+var SMOKE_DURATION_MS = 30000; /* smoke fade-out start; guard uses same duration */
 var clickBuffer = [];
 var activeSmokes = [];
 var cloneRushes = [];
+var activeGuard = null;
 
 /* ─── AVATAR SIZES ─── */
 var AVATAR_SCALE = 0.10; /* 1 unit out of 10 = 10% of canvas height */
@@ -397,7 +407,7 @@ function removeConnectedFlatBackground(data, w, h) {
 
 function moveDamage(baseDmg, move) {
   var multipliers = { normal: 1, double: 1.5, power: 2.5, split: 1.1, spread: 1.25, heavy: 2.4, rapid: 0.85, pierce: 1.8 };
-  return Math.max(1, Math.round(baseDmg * (multipliers[move] || 1)));
+  return Math.max(1, Math.round((baseDmg * (multipliers[move] || 1)) / 5));
 }
 
 function nextShotId() {
@@ -502,6 +512,7 @@ function buildPowerShots(lanes) {
 function sendPlayerShot(shot) {
   shot.shotId = nextShotId();
   shot.dmg = moveDamage(myDmg, shot.move);
+  shot.fromId = socket.id;
   spawnPlayerShot(shot);
   socket.emit('fire', shot);
 }
@@ -565,11 +576,14 @@ function setupBattle() {
   // Buttons visibility & limits
   var smokeBtn = document.getElementById('btnSmoke');
   var clonesBtn = document.getElementById('btnClones');
-  if (smokeBtn && clonesBtn) {
+  var guardBtn = document.getElementById('btnGuard');
+  if (smokeBtn && clonesBtn && guardBtn) {
     smokeBtn.classList.remove('hidden');
     clonesBtn.classList.remove('hidden');
+    guardBtn.classList.remove('hidden');
     smokeBtn.disabled = false;  // Ensure reset on new match
     clonesBtn.disabled = false;
+    guardBtn.disabled = false;
     
     smokeBtn.onclick = function(e) {
       if(e) e.preventDefault();
@@ -582,6 +596,12 @@ function setupBattle() {
       sfx.playPowerMove();
       clonesBtn.disabled = true; // Perm disable for this match
       socket.emit('triggerCloneRush');
+    };
+    guardBtn.onclick = function(e) {
+      if (e) e.preventDefault();
+      sfx.playPowerMove();
+      guardBtn.disabled = true; // Perm disable for this match
+      socket.emit('triggerGuard');
     };
   }
 
@@ -696,6 +716,7 @@ function setupBattle() {
   projectiles = [];
   floatingTexts = [];
   shotSeq = 0;
+  clearMatchEffects();
   gameRunning = true;
   lastT = performance.now();
 
@@ -788,6 +809,7 @@ function spawnPlayerShot(shot, dmg, big) {
     y: y,
     vx: (shot.vx || 0) * dpr,
     vy: -spd,
+    fromId: shot.fromId || socket.id,
     ally: true,
     dmg: shot.dmg || dmg || myDmg,
     big: !!shot.big,
@@ -811,6 +833,7 @@ function spawnEnemyShot(shot, dmg) {
     y: y,
     vx: (shot.vx || 0) * dpr,
     vy: spd,
+    fromId: shot.fromId || null,
     ally: false,
     dmg: shot.dmg || dmg || myDmg,
     big: !!shot.big,
@@ -873,7 +896,7 @@ socket.on('smokeEffect', function(data) {
   var isMe = amFighter && (socket.id === data.sourceId);
   var smokeObj = { isPlayerSource: isMe, particles: [], alpha: 0, active: true };
   activeSmokes.push(smokeObj);
-  setTimeout(function() { smokeObj.active = false; }, 30000); // Clear after 30s
+  setTimeout(function() { smokeObj.active = false; }, SMOKE_DURATION_MS);
 });
 
 socket.on('cloneRushEffect', function(data) {
@@ -893,6 +916,15 @@ socket.on('cloneRushEffect', function(data) {
       hit: false
     });
   }
+});
+
+socket.on('guardEffect', function(data) {
+  if (!gameRunning || !gameData) return;
+  activeGuard = {
+    sourceId: data.sourceId,
+    alpha: 1,
+    ttl: SMOKE_DURATION_MS
+  };
 });
 
 /* ─── Arrow vs arrow collision ─── */
@@ -929,6 +961,12 @@ function projectileTouchesAvatar(p, layout) {
   return Math.abs(p.x - layout.cx) <= hitW / 2 + r && Math.abs(p.y - layout.cy) <= hitH / 2 + r;
 }
 
+function clearMatchEffects() {
+  activeSmokes = [];
+  cloneRushes = [];
+  activeGuard = null;
+}
+
 /* ═══ GAME LOOP ═══ */
 function loop(now) {
   if (!gameRunning) return;
@@ -953,6 +991,8 @@ function loop(now) {
   /* Move & collide projectiles */
   var OL = opLayout();
   var ML = myLayout();
+  var guardCenterX = holeXs(w, HOLE_COUNT)[2] || w / 2;
+  var guardCenterY = h * 0.5;
 
   for (var i = projectiles.length - 1; i >= 0; i--) {
     var p = projectiles[i];
@@ -963,6 +1003,20 @@ function loop(now) {
     if (p.x < 0 || p.x > w || p.y < -30 || p.y > h + 30) {
       projectiles.splice(i, 1);
       continue;
+    }
+
+    if (activeGuard && activeGuard.ttl > 0 && gameData && gameData.fighterIds.length === 2) {
+      var guardOwner = activeGuard.sourceId;
+      var blockedShooter = gameData.fighterIds[0] === guardOwner ? gameData.fighterIds[1] : gameData.fighterIds[0];
+      if (blockedShooter && p.fromId === blockedShooter) {
+        var dxGuard = p.x - guardCenterX;
+        var dyGuard = p.y - guardCenterY;
+        var guardRadius = 34 * dpr;
+        if (dxGuard * dxGuard + dyGuard * dyGuard <= guardRadius * guardRadius) {
+          projectiles.splice(i, 1);
+          continue;
+        }
+      }
     }
 
     /* Ally projectile hitting OPPONENT avatar (top) — damage only on avatar touch */
@@ -1117,6 +1171,27 @@ function loop(now) {
     ctx.beginPath(); ctx.arc(botXs[t], botHoleY, 6 * dpr, 0, Math.PI * 2); ctx.stroke();
   }
 
+  if (activeGuard && activeGuard.ttl > 0) {
+    activeGuard.ttl -= (dt || 0.016) * 1000;
+    var pulse = 1 + Math.sin(now / 180) * 0.08;
+    var baseR = 24 * dpr * pulse;
+    ctx.save();
+    ctx.translate(guardCenterX, guardCenterY);
+    ctx.globalAlpha = 0.85;
+    ctx.fillStyle = 'rgba(96,165,250,0.28)';
+    ctx.beginPath();
+    ctx.arc(0, 0, baseR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(191,219,254,0.95)';
+    ctx.lineWidth = 3 * dpr;
+    ctx.beginPath();
+    ctx.arc(0, 0, baseR + 8 * dpr, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.restore();
+    if (activeGuard.ttl <= 0) activeGuard = null;
+  }
+
   /* ─── Floating Damage Texts ─── */
   for (var f = floatingTexts.length - 1; f >= 0; f--) {
     var ft = floatingTexts[f];
@@ -1227,6 +1302,39 @@ function loop(now) {
 
   loopRafId = requestAnimationFrame(loop);
 }
+
+function goArenaOnly() {
+  sfx.playClick();
+  gameRunning = false;
+  clearMatchEffects();
+  document.getElementById('modalGO').classList.add('hidden');
+  document.getElementById('nextOv').classList.add('hidden');
+  socket.emit('leaveMatchmaking');
+  showLobby();
+}
+
+function rejoinMatchmaking() {
+  sfx.playClick();
+  socket.emit('rejoinMatchmaking');
+}
+
+function syncQueueButtons() {
+  var rejoinBtn = document.getElementById('btnRejoin');
+  if (!rejoinBtn) return;
+  rejoinBtn.style.display = isQueuedForMatch ? 'none' : 'block';
+}
+
+var goArenaBtn1 = document.getElementById('btnGoArenaFromOver');
+if (goArenaBtn1) goArenaBtn1.addEventListener('click', goArenaOnly);
+var goArenaBtn2 = document.getElementById('btnGoArenaFromNext');
+if (goArenaBtn2) goArenaBtn2.addEventListener('click', goArenaOnly);
+var rejoinBtn = document.getElementById('btnRejoin');
+if (rejoinBtn) rejoinBtn.addEventListener('click', rejoinMatchmaking);
+
+socket.on('queueStatus', function(data) {
+  isQueuedForMatch = !!(data && data.queued);
+  syncQueueButtons();
+});
 
 /* ═══ CONFETTI ═══ */
 function launchConfetti() {

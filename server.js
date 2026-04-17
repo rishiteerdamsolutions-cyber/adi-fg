@@ -24,6 +24,8 @@ const FAMILY = [
 ];
 
 const MAX_HP = 300;
+const HEALTH_MULTIPLIER = 5;
+const EFFECTIVE_MAX_HP = MAX_HP * HEALTH_MULTIPLIER;
 
 /* ─── Rooms Architecture ─── */
 const rooms = {};
@@ -64,7 +66,7 @@ function getCharFromDeck(room) {
 
 function lobbyList(room) {
   return Object.values(room.players).sort((a, b) => a.num - b.num).map(p => {
-    return { ...p, wins: room.users[p.userId] ? room.users[p.userId].wins : 0 };
+    return { ...p, wins: room.users[p.userId] ? room.users[p.userId].wins : 0, queued: p.queued !== false };
   });
 }
 
@@ -96,10 +98,11 @@ function resetTimer(room) {
 /* ─── Start Game ─── */
 function tryStart(room) {
   const ids = Object.keys(room.players);
-  if (ids.length < 2) { io.to(room.id).emit('lobbyMsg', 'Need 2+ players. Timer reset.'); resetTimer(room); return; }
+  const queuedIds = ids.filter(id => room.players[id] && room.players[id].queued !== false);
+  if (queuedIds.length < 2) { io.to(room.id).emit('lobbyMsg', 'Need 2+ queued players. Timer reset.'); resetTimer(room); return; }
 
   // Select least played users
-  const candidates = [...ids].sort((a, b) => {
+  const candidates = [...queuedIds].sort((a, b) => {
     const pA = room.players[a].userId;
     const pB = room.players[b].userId;
     const countA = room.playerCounts[pA] || 0;
@@ -117,17 +120,20 @@ function tryStart(room) {
   const c2 = getCharFromDeck(room);
 
   room.fighters = {};
-  room.fighters[a] = { id: a, username: room.players[a].username, num: room.players[a].num, char: c1, hp: MAX_HP, maxHp: MAX_HP };
-  room.fighters[b] = { id: b, username: room.players[b].username, num: room.players[b].num, char: c2, hp: MAX_HP, maxHp: MAX_HP };
+  room.fighters[a] = { id: a, username: room.players[a].username, num: room.players[a].num, char: c1, hp: EFFECTIVE_MAX_HP, maxHp: EFFECTIVE_MAX_HP };
+  room.fighters[b] = { id: b, username: room.players[b].username, num: room.players[b].num, char: c2, hp: EFFECTIVE_MAX_HP, maxHp: EFFECTIVE_MAX_HP };
   room.fighterIds = [a, b];
-  room.spectators = ids.filter(x => x !== a && x !== b);
+  room.spectators = queuedIds.filter(x => x !== a && x !== b);
   room.hitIds = new Set();
   room.startedAt = Date.now();
   room.status = 'playing';
 
   if (room.timerInt) { clearInterval(room.timerInt); room.timerInt = null; }
 
-  io.to(room.id).emit('gameStart', pubGame(room));
+  const participants = [...room.fighterIds, ...room.spectators];
+  participants.forEach((sid) => io.to(sid).emit('gameStart', pubGame(room)));
+  io.to(room.id).emit('lobbyMsg', room.players[a].username + ' vs ' + room.players[b].username + ' is live now!');
+  io.to(room.id).emit('lobbyUpdate', pubLobby(room));
 }
 
 function clampNum(value, min, max, fallback) {
@@ -138,7 +144,7 @@ function clampNum(value, min, max, fallback) {
 
 function damageForMove(baseDmg, move) {
   const multipliers = { normal: 1, double: 1.3, power: 1.8, split: 1.05, spread: 1.15, heavy: 1.6, rapid: 0.7, pierce: 1.4 };
-  return Math.max(1, Math.round(baseDmg * (multipliers[move] || 1)));
+  return Math.max(1, Math.round((baseDmg * (multipliers[move] || 1)) / HEALTH_MULTIPLIER));
 }
 
 function handleGameOver(room, winnerId) {
@@ -155,7 +161,8 @@ function handleGameOver(room, winnerId) {
 
   setTimeout(() => {
     room.status = 'idle'; room.fighters = {}; room.fighterIds = []; room.spectators = []; room.hitIds = new Set(); room.startedAt = null;
-    if (Object.keys(room.players).length >= 2) {
+    const queuedCount = Object.values(room.players).filter((p) => p && p.queued !== false).length;
+    if (queuedCount >= 2) {
       room.status = 'waiting';
       let cd = 5;
       io.to(room.id).emit('nextCountdown', cd);
@@ -183,14 +190,14 @@ io.on('connection', (socket) => {
     if (!room.users[userId]) room.users[userId] = { wins: 0, username: name };
 
     const num = room.nextNum++;
-    room.players[socket.id] = { id: socket.id, userId, username: name, num };
+    room.players[socket.id] = { id: socket.id, userId, username: name, num, queued: true };
     
     if (Object.keys(room.players).length === 1 && !room.timerInt) startTimer(room);
     
     cb({ ok: true, num, wins: room.users[userId].wins });
     io.to(myRoomId).emit('lobbyUpdate', pubLobby(room));
     
-    if (room.status === 'playing') {
+    if (room.status === 'playing' && room.players[socket.id].queued !== false) {
       room.spectators.push(socket.id);
       socket.emit('gameStart', pubGame(room));
     }
@@ -204,12 +211,45 @@ io.on('connection', (socket) => {
     tryStart(room);
   });
 
-  /* ─── Emotes ─── */
-  socket.on('emote', (emoji) => {
+  socket.on('leaveMatchmaking', () => {
     if (!myRoomId) return;
     const room = getRoom(myRoomId);
+    const me = room.players[socket.id];
+    if (!me) return;
+    me.queued = false;
+    room.spectators = room.spectators.filter(x => x !== socket.id);
+    socket.emit('queueStatus', { queued: false });
+    io.to(myRoomId).emit('lobbyUpdate', pubLobby(room));
+  });
+
+  socket.on('rejoinMatchmaking', () => {
+    if (!myRoomId) return;
+    const room = getRoom(myRoomId);
+    const me = room.players[socket.id];
+    if (!me) return;
+    me.queued = true;
+    socket.emit('queueStatus', { queued: true });
+    io.to(myRoomId).emit('lobbyUpdate', pubLobby(room));
+    if (room.status === 'playing' && !room.fighters[socket.id] && !room.spectators.includes(socket.id)) {
+      room.spectators.push(socket.id);
+      socket.emit('gameStart', pubGame(room));
+      return;
+    }
+    const queuedCount = Object.values(room.players).filter((p) => p && p.queued !== false).length;
+    if (queuedCount >= 2 && !room.timerInt && room.status !== 'playing') {
+      startTimer(room);
+    }
+  });
+
+  /* ─── Emotes ─── */
+  socket.on('emote', (payload) => {
+    if (!myRoomId) return;
+    const room = getRoom(myRoomId);
+    const emoji = typeof payload === 'string' ? payload : payload && payload.emoji;
+    const side = payload && typeof payload === 'object' && payload.side === 'left' ? 'left' : 'right';
+    if (!emoji) return;
     if (room.players[socket.id]) {
-      io.to(myRoomId).emit('showEmote', { id: socket.id, emoji, username: room.players[socket.id].username });
+      io.to(myRoomId).emit('showEmote', { id: socket.id, emoji, username: room.players[socket.id].username, side });
     }
   });
 
@@ -230,6 +270,13 @@ io.on('connection', (socket) => {
     io.to(myRoomId).emit('cloneRushEffect', { sourceId: socket.id });
   });
 
+  socket.on('triggerGuard', () => {
+    if (!myRoomId) return;
+    const room = getRoom(myRoomId);
+    if (room.status !== 'playing' || !room.fighters[socket.id]) return;
+    io.to(myRoomId).emit('guardEffect', { sourceId: socket.id });
+  });
+
   socket.on('takeCloneHit', ({ hitId } = {}) => {
     if (!myRoomId) return;
     const room = getRoom(myRoomId);
@@ -244,7 +291,7 @@ io.on('connection', (socket) => {
     room.hitIds.add(id);
 
     const opponent = room.fighters[opId];
-    const rawDmg = Math.round(opponent.maxHp * 0.20);
+    const rawDmg = Math.round(opponent.maxHp * 0.04);
 
     opponent.hp = Math.max(0, opponent.hp - rawDmg);
     io.to(myRoomId).emit('hpUpdate', { id: opId, hp: opponent.hp, maxHp: opponent.maxHp, dmg: rawDmg });
