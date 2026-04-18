@@ -246,11 +246,26 @@ io.on('connection', (socket) => {
     if (!myRoomId) return;
     const room = getRoom(myRoomId);
     const emoji = typeof payload === 'string' ? payload : payload && payload.emoji;
-    const side = payload && typeof payload === 'object' && payload.side === 'left' ? 'left' : 'right';
-    if (!emoji) return;
-    if (room.players[socket.id]) {
-      io.to(myRoomId).emit('showEmote', { id: socket.id, emoji, username: room.players[socket.id].username, side });
+    if (!emoji || !room.players[socket.id]) return;
+
+    const rawSlot = payload && typeof payload === 'object' ? payload.targetSlot : undefined;
+    const targetSlot = rawSlot === 0 || rawSlot === '0' ? 0 : (rawSlot === 1 || rawSlot === '1' ? 1 : null);
+    const isLive = room.status === 'playing';
+    const isFighter = !!room.fighters[socket.id];
+    const isSpectator = isLive && !isFighter;
+
+    /* Spectators: one dock targets fighterIds[0] or [1] — only that fighter hears the reaction */
+    if (isSpectator && targetSlot !== null && room.fighterIds && room.fighterIds[targetSlot]) {
+      const recipientId = room.fighterIds[targetSlot];
+      const fromName = room.players[socket.id].username;
+      const base = { emoji, recipientId, fromSpectator: true, fromName };
+      io.to(recipientId).emit('showEmote', base);
+      const silent = { ...base, silent: true };
+      room.spectators.forEach((sid) => { io.to(sid).emit('showEmote', silent); });
+      return;
     }
+
+    /* Fighters cannot send reactions — spectators only */
   });
 
   /* ─── Real-Time Combat Events ─── */

@@ -95,6 +95,27 @@
             <button id="btnClones" class="smoke-btn round hidden" style="background: url('clones.png') no-repeat center/cover; border: 2px solid rgba(255,255,255,0.4);" title="Clone Rush"></button>
             <button id="btnGuard" class="smoke-btn round hidden" style="background: url('guard.png') no-repeat center/cover, rgba(15,23,42,0.85); border: 2px solid rgba(255,255,255,0.4);" title="Guardian Shield">🛡️</button>
           </div>
+          <!-- Spectators only: two emoji stacks on the arena’s right edge (powers stay on the left) -->
+          <div id="spectatorReactions" class="spectator-reactions hidden" aria-label="Spectator reactions">
+            <div class="emote-group" aria-label="Reactions for first fighter">
+              <span class="emote-group-label" id="specReactP1">Player 1</span>
+              <div class="emote-group-btns">
+                <button type="button" class="emote-btn" data-slot="0" data-emote="😂">😂</button>
+                <button type="button" class="emote-btn" data-slot="0" data-emote="😡">😡</button>
+                <button type="button" class="emote-btn" data-slot="0" data-emote="🔥">🔥</button>
+                <button type="button" class="emote-btn" data-slot="0" data-emote="👏">👏</button>
+              </div>
+            </div>
+            <div class="emote-group" aria-label="Reactions for second fighter">
+              <span class="emote-group-label" id="specReactP2">Player 2</span>
+              <div class="emote-group-btns">
+                <button type="button" class="emote-btn" data-slot="1" data-emote="😂">😂</button>
+                <button type="button" class="emote-btn" data-slot="1" data-emote="😡">😡</button>
+                <button type="button" class="emote-btn" data-slot="1" data-emote="🔥">🔥</button>
+                <button type="button" class="emote-btn" data-slot="1" data-emote="👏">👏</button>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Player Deck: fire lanes -->
@@ -119,20 +140,6 @@
           <div class="hp-bar"><div class="hp-fill player" id="hpPlayer"></div></div>
         </div>
       </div>
-    </div>
-
-    <!-- Emotes Overlay -->
-    <div class="emotes-panel left" aria-label="Left reactions">
-      <button class="emote-btn" data-side="left" data-emote="😂">😂</button>
-      <button class="emote-btn" data-side="left" data-emote="😡">😡</button>
-      <button class="emote-btn" data-side="left" data-emote="🔥">🔥</button>
-      <button class="emote-btn" data-side="left" data-emote="👏">👏</button>
-    </div>
-    <div class="emotes-panel right" aria-label="Right reactions">
-      <button class="emote-btn" data-side="right" data-emote="😂">😂</button>
-      <button class="emote-btn" data-side="right" data-emote="😡">😡</button>
-      <button class="emote-btn" data-side="right" data-emote="🔥">🔥</button>
-      <button class="emote-btn" data-side="right" data-emote="👏">👏</button>
     </div>
   </div>
 

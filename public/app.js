@@ -113,27 +113,65 @@ if (btnLeader && modLeader && btnClsLeader) {
   btnClsLeader.addEventListener('click', function() { sfx.playClick(); modLeader.classList.add('hidden'); });
 }
 
-/* ═══ EMOTES ═══ */
-document.querySelectorAll('.emotes-panel .emote-btn').forEach(function(btn) {
-  btn.addEventListener('click', function() {
-    socket.emit('emote', { emoji: this.dataset.emote, side: this.dataset.side || 'right' });
-    sfx.playClick();
+/* ═══ EMOTES (spectators: one dock, targeted to a fighter by slot) ═══ */
+function mountFloatingEmote(battleDiv, emoji, placement) {
+  var el = document.createElement('div');
+  el.className = 'floating-emote';
+  el.innerText = emoji;
+  el.style.left = (36 + Math.random() * 10) + '%';
+  if (placement === 'top') {
+    el.style.top = (10 + Math.random() * 8) + '%';
+    el.style.bottom = 'auto';
+  } else if (placement === 'bottom') {
+    el.style.bottom = (12 + Math.random() * 10) + '%';
+    el.style.top = 'auto';
+  } else {
+    var isLeft = placement === 'left';
+    el.style.left = isLeft ? '12%' : '82%';
+    el.style.bottom = (12 + Math.random() * 12) + '%';
+    el.style.top = 'auto';
+  }
+  battleDiv.appendChild(el);
+  setTimeout(function() { el.remove(); }, 1800);
+}
+
+var specReactEl = document.getElementById('spectatorReactions');
+if (specReactEl) {
+  specReactEl.querySelectorAll('.emote-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      if (amFighter) return;
+      var slot = Number(this.dataset.slot);
+      if (slot !== 0 && slot !== 1) return;
+      socket.emit('emote', { emoji: this.dataset.emote, targetSlot: slot });
+      sfx.playClick();
+    });
   });
-});
+}
 
 socket.on('showEmote', function(data) {
   var battleDiv = document.getElementById('screenBattle');
   if (battleDiv.style.display === 'none') return;
   var words = { '😂': 'oops', '😡': 'bad', '🔥': 'excellent', '👏': 'good' };
-  var el = document.createElement('div');
-  el.className = 'floating-emote';
-  el.innerText = data.emoji;
-  var isLeft = data.side === 'left';
-  el.style.left = isLeft ? '12%' : '82%';
-  el.style.bottom = (12 + Math.random() * 12) + '%';
-  battleDiv.appendChild(el);
-  sfx.playReactionWord(words[data.emoji] || 'good');
-  setTimeout(function() { el.remove(); }, 1800);
+  var word = words[data.emoji] || 'good';
+
+  if (data.recipientId) {
+    if (!data.silent) {
+      if (socket.id !== data.recipientId) return;
+      sfx.playReactionWord(word);
+      mountFloatingEmote(battleDiv, data.emoji, 'bottom');
+      return;
+    }
+    if (amFighter) return;
+    if (!gameData || !gameData.fighterIds || gameData.fighterIds.length < 2) return;
+    var idx = gameData.fighterIds.indexOf(data.recipientId);
+    if (idx < 0) return;
+    mountFloatingEmote(battleDiv, data.emoji, idx === 0 ? 'bottom' : 'top');
+    return;
+  }
+
+  var side = data.side === 'left' ? 'left' : 'right';
+  sfx.playReactionWord(word);
+  mountFloatingEmote(battleDiv, data.emoji, side);
 });
 
 /* ═══ GAME START ═══ */
@@ -151,8 +189,22 @@ socket.on('gameStart', function (data) {
   var banner = document.getElementById('specBanner');
   banner.classList.toggle('hidden', amFighter);
 
-  var emotesPanel = document.querySelector('.emotes-panel');
-  if (emotesPanel) emotesPanel.style.display = 'flex';
+  var specDock = document.getElementById('spectatorReactions');
+  if (specDock) {
+    if (amFighter) {
+      specDock.classList.add('hidden');
+    } else {
+      specDock.classList.remove('hidden');
+      var l1 = document.getElementById('specReactP1');
+      var l2 = document.getElementById('specReactP2');
+      if (l1 && l2 && data.fighterIds && data.fighterIds.length >= 2) {
+        var f0 = data.fighters[data.fighterIds[0]];
+        var f1 = data.fighters[data.fighterIds[1]];
+        l1.innerText = f0 && f0.username ? f0.username : 'Player 1';
+        l2.innerText = f1 && f1.username ? f1.username : 'Player 2';
+      }
+    }
+  }
 
   if (amFighter) {
     myFighter = data.fighters[socket.id];
